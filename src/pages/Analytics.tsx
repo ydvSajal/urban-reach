@@ -3,14 +3,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from "recharts";
-import { TrendingUp, FileText, Clock, CheckCircle, AlertTriangle } from "lucide-react";
+import { TrendingUp, FileText, Clock, CheckCircle, AlertTriangle, BarChart3 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 
 interface AnalyticsData {
-  reportsByCategory: Array<{ name: string; value: number; color: string }>;
-  reportsByStatus: Array<{ name: string; value: number; color: string }>;
-  reportsByPriority: Array<{ name: string; value: number; color: string }>;
-  reportsOverTime: Array<{ date: string; count: number }>;
+  reportsByCategory: Array<{ name: string; value: number; percentage: number }>;
+  reportsByStatus: Array<{ name: string; value: number; percentage: number }>;
+  reportsByPriority: Array<{ name: string; value: number; percentage: number }>;
   avgResolutionTime: number;
   totalReports: number;
   openReports: number;
@@ -22,7 +21,6 @@ const Analytics = () => {
     reportsByCategory: [],
     reportsByStatus: [],
     reportsByPriority: [],
-    reportsOverTime: [],
     avgResolutionTime: 0,
     totalReports: 0,
     openReports: 0,
@@ -66,20 +64,9 @@ const Analytics = () => {
   };
 
   const processReportsData = (reports: any[]): AnalyticsData => {
-    // Reports by category
-    const categoryColors = {
-      roads: "#8884d8",
-      sanitation: "#82ca9d",
-      water_supply: "#ffc658",
-      electricity: "#ff7300",
-      public_safety: "#00ff00",
-      parks: "#0088fe",
-      drainage: "#00c49f",
-      waste_management: "#ffbb28",
-      street_lights: "#ff8042",
-      other: "#8dd1e1"
-    };
+    const total = reports.length;
 
+    // Reports by category
     const categoryCount = reports.reduce((acc, report) => {
       acc[report.category] = (acc[report.category] || 0) + 1;
       return acc;
@@ -88,18 +75,10 @@ const Analytics = () => {
     const reportsByCategory = Object.entries(categoryCount).map(([category, count]) => ({
       name: category.replace('_', ' ').toUpperCase(),
       value: count as number,
-      color: categoryColors[category as keyof typeof categoryColors] || "#8884d8"
+      percentage: total > 0 ? Math.round(((count as number) / total) * 100) : 0
     }));
 
     // Reports by status
-    const statusColors = {
-      pending: "#ffc658",
-      acknowledged: "#8884d8",
-      in_progress: "#ff7300",
-      resolved: "#00c49f",
-      closed: "#8dd1e1"
-    };
-
     const statusCount = reports.reduce((acc, report) => {
       acc[report.status] = (acc[report.status] || 0) + 1;
       return acc;
@@ -108,16 +87,10 @@ const Analytics = () => {
     const reportsByStatus = Object.entries(statusCount).map(([status, count]) => ({
       name: status.replace('_', ' ').toUpperCase(),
       value: count as number,
-      color: statusColors[status as keyof typeof statusColors] || "#8884d8"
+      percentage: total > 0 ? Math.round(((count as number) / total) * 100) : 0
     }));
 
     // Reports by priority
-    const priorityColors = {
-      low: "#00c49f",
-      medium: "#ffc658",
-      high: "#ff8042"
-    };
-
     const priorityCount = reports.reduce((acc, report) => {
       acc[report.priority] = (acc[report.priority] || 0) + 1;
       return acc;
@@ -126,22 +99,8 @@ const Analytics = () => {
     const reportsByPriority = Object.entries(priorityCount).map(([priority, count]) => ({
       name: priority.toUpperCase(),
       value: count as number,
-      color: priorityColors[priority as keyof typeof priorityColors] || "#8884d8"
+      percentage: total > 0 ? Math.round(((count as number) / total) * 100) : 0
     }));
-
-    // Reports over time (daily)
-    const dailyCounts = reports.reduce((acc, report) => {
-      const date = new Date(report.created_at).toISOString().split('T')[0];
-      acc[date] = (acc[date] || 0) + 1;
-      return acc;
-    }, {});
-
-    const reportsOverTime = Object.entries(dailyCounts)
-      .map(([date, count]) => ({
-        date: new Date(date).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }),
-        count: count as number
-      }))
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
     // Calculate average resolution time
     const resolvedReports = reports.filter(r => r.resolved_at);
@@ -157,9 +116,8 @@ const Analytics = () => {
       reportsByCategory,
       reportsByStatus,
       reportsByPriority,
-      reportsOverTime,
       avgResolutionTime,
-      totalReports: reports.length,
+      totalReports: total,
       openReports: reports.filter(r => !['resolved', 'closed'].includes(r.status)).length,
       resolvedReports: reports.filter(r => ['resolved', 'closed'].includes(r.status)).length,
     };
@@ -254,99 +212,143 @@ const Analytics = () => {
         ))}
       </div>
 
-      {/* Charts Grid */}
+      {/* Simple Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Reports by Category */}
         <Card>
           <CardHeader>
-            <CardTitle>Reports by Category</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              Reports by Category
+            </CardTitle>
             <CardDescription>Distribution of issues by type</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={data.reportsByCategory}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {data.reportsByCategory.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
+            <div className="space-y-3">
+              {data.reportsByCategory.map((item) => (
+                <div key={item.name} className="flex items-center justify-between">
+                  <span className="text-sm font-medium">{item.name}</span>
+                  <div className="flex items-center gap-3 flex-1 max-w-[200px]">
+                    <Progress value={item.percentage} className="flex-1" />
+                    <span className="text-sm text-muted-foreground w-12 text-right">
+                      {item.value} ({item.percentage}%)
+                    </span>
+                  </div>
+                </div>
+              ))}
+              {data.reportsByCategory.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">No data available</p>
+              )}
+            </div>
           </CardContent>
         </Card>
 
         {/* Reports by Status */}
         <Card>
           <CardHeader>
-            <CardTitle>Reports by Status</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              Reports by Status
+            </CardTitle>
             <CardDescription>Current status distribution</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={data.reportsByStatus}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="value" fill="#8884d8">
-                  {data.reportsByStatus.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        {/* Reports Over Time */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Reports Over Time</CardTitle>
-            <CardDescription>Daily report submissions</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={data.reportsOverTime}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip />
-                <Line type="monotone" dataKey="count" stroke="#8884d8" strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
+            <div className="space-y-3">
+              {data.reportsByStatus.map((item) => (
+                <div key={item.name} className="flex items-center justify-between">
+                  <span className="text-sm font-medium">{item.name}</span>
+                  <div className="flex items-center gap-3 flex-1 max-w-[200px]">
+                    <Progress value={item.percentage} className="flex-1" />
+                    <span className="text-sm text-muted-foreground w-12 text-right">
+                      {item.value} ({item.percentage}%)
+                    </span>
+                  </div>
+                </div>
+              ))}
+              {data.reportsByStatus.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">No data available</p>
+              )}
+            </div>
           </CardContent>
         </Card>
 
         {/* Reports by Priority */}
         <Card>
           <CardHeader>
-            <CardTitle>Reports by Priority</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" />
+              Reports by Priority
+            </CardTitle>
             <CardDescription>Priority level distribution</CardDescription>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={data.reportsByPriority}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="value" fill="#8884d8">
-                  {data.reportsByPriority.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="space-y-3">
+              {data.reportsByPriority.map((item) => (
+                <div key={item.name} className="flex items-center justify-between">
+                  <span className="text-sm font-medium">{item.name}</span>
+                  <div className="flex items-center gap-3 flex-1 max-w-[200px]">
+                    <Progress value={item.percentage} className="flex-1" />
+                    <span className="text-sm text-muted-foreground w-12 text-right">
+                      {item.value} ({item.percentage}%)
+                    </span>
+                  </div>
+                </div>
+              ))}
+              {data.reportsByPriority.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">No data available</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Summary Stats */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-5 w-5" />
+              Summary Statistics
+            </CardTitle>
+            <CardDescription>Key performance indicators</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium">Resolution Rate</span>
+                <div className="flex items-center gap-2">
+                  <Progress 
+                    value={data.totalReports > 0 ? Math.round((data.resolvedReports / data.totalReports) * 100) : 0} 
+                    className="w-20" 
+                  />
+                  <span className="text-sm font-bold">
+                    {data.totalReports > 0 ? Math.round((data.resolvedReports / data.totalReports) * 100) : 0}%
+                  </span>
+                </div>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium">Avg Resolution Time</span>
+                <span className="text-sm font-bold">
+                  {data.avgResolutionTime.toFixed(1)} days
+                </span>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium">Most Common Category</span>
+                <span className="text-sm font-bold">
+                  {data.reportsByCategory.length > 0 
+                    ? data.reportsByCategory.reduce((prev, current) => (prev.value > current.value) ? prev : current).name
+                    : "N/A"
+                  }
+                </span>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-medium">Open vs Resolved</span>
+                <span className="text-sm font-bold">
+                  {data.openReports} / {data.resolvedReports}
+                </span>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -359,14 +361,17 @@ const Analytics = () => {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="text-center p-4 bg-blue-50 rounded-lg">
+            <div className="text-center p-4 bg-blue-50 rounded-lg border">
               <AlertTriangle className="h-8 w-8 text-blue-600 mx-auto mb-2" />
               <p className="text-sm font-medium">Resolution Rate</p>
               <p className="text-2xl font-bold text-blue-600">
                 {data.totalReports > 0 ? Math.round((data.resolvedReports / data.totalReports) * 100) : 0}%
               </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {data.resolvedReports} of {data.totalReports} resolved
+              </p>
             </div>
-            <div className="text-center p-4 bg-green-50 rounded-lg">
+            <div className="text-center p-4 bg-green-50 rounded-lg border">
               <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-2" />
               <p className="text-sm font-medium">Most Common Category</p>
               <p className="text-lg font-bold text-green-600">
@@ -375,12 +380,21 @@ const Analytics = () => {
                   : "N/A"
                 }
               </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {data.reportsByCategory.length > 0 
+                  ? `${data.reportsByCategory.reduce((prev, current) => (prev.value > current.value) ? prev : current).value} reports`
+                  : "No data"
+                }
+              </p>
             </div>
-            <div className="text-center p-4 bg-orange-50 rounded-lg">
+            <div className="text-center p-4 bg-orange-50 rounded-lg border">
               <Clock className="h-8 w-8 text-orange-600 mx-auto mb-2" />
               <p className="text-sm font-medium">Pending Reports</p>
               <p className="text-2xl font-bold text-orange-600">
                 {data.reportsByStatus.find(s => s.name === 'PENDING')?.value || 0}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Awaiting attention
               </p>
             </div>
           </div>
