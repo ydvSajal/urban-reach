@@ -21,11 +21,11 @@ interface Report {
   location_address: string;
   created_at: string;
   profiles: {
-    full_name: string;
-    email: string;
-  };
+    full_name: string | null;
+    email: string | null;
+  } | null;
   workers: {
-    full_name: string;
+    full_name: string | null;
   } | null;
 }
 
@@ -52,19 +52,45 @@ const Reports = () => {
         .from("reports")
         .select(`
           *,
-          profiles!reports_citizen_id_fkey (
-            full_name,
-            email
-          ),
-          workers (
-            full_name
-          )
+          citizen_id,
+          assigned_worker_id
         `)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Reports loading error:", error);
+        setReports([]);
+        return;
+      }
 
-      setReports(data || []);
+      // Manually fetch profiles and workers for each report
+      const reportsWithRelations = await Promise.all(
+        (data || []).map(async (report) => {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("full_name, email")
+            .eq("user_id", report.citizen_id)
+            .single();
+
+          let worker = null;
+          if (report.assigned_worker_id) {
+            const { data: workerData } = await supabase
+              .from("workers")
+              .select("full_name")
+              .eq("id", report.assigned_worker_id)
+              .single();
+            worker = workerData;
+          }
+
+          return {
+            ...report,
+            profiles: profile || { full_name: null, email: null },
+            workers: worker
+          };
+        })
+      );
+
+      setReports(reportsWithRelations);
     } catch (error: any) {
       console.error("Error loading reports:", error);
       toast({

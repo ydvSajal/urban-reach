@@ -26,13 +26,13 @@ interface Report {
   updated_at: string;
   resolved_at: string | null;
   profiles: {
-    full_name: string;
-    email: string;
-    phone: string;
-  };
+    full_name: string | null;
+    email: string | null;
+    phone: string | null;
+  } | null;
   workers: {
     id: string;
-    full_name: string;
+    full_name: string | null;
   } | null;
 }
 
@@ -43,8 +43,8 @@ interface StatusHistoryEntry {
   notes: string | null;
   created_at: string;
   profiles: {
-    full_name: string;
-  };
+    full_name: string | null;
+  } | null;
 }
 
 interface Worker {
@@ -81,24 +81,38 @@ const ReportDetail = () => {
     try {
       const { data, error } = await supabase
         .from("reports")
-        .select(`
-          *,
-          profiles!reports_citizen_id_fkey (
-            full_name,
-            email,
-            phone
-          ),
-          workers (
-            id,
-            full_name
-          )
-        `)
+        .select("*")
         .eq("id", id)
         .single();
 
       if (error) throw error;
+      if (!data) throw new Error("Report not found");
 
-      setReport(data);
+      // Fetch profile separately
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("full_name, email, phone")
+        .eq("user_id", data.citizen_id)
+        .single();
+
+      // Fetch worker if assigned
+      let worker = null;
+      if (data.assigned_worker_id) {
+        const { data: workerData } = await supabase
+          .from("workers")
+          .select("id, full_name")
+          .eq("id", data.assigned_worker_id)
+          .single();
+        worker = workerData;
+      }
+
+      const reportWithRelations = {
+        ...data,
+        profiles: profile || { full_name: null, email: null, phone: null },
+        workers: worker
+      };
+
+      setReport(reportWithRelations);
       setNewStatus(data.status);
       setNewPriority(data.priority);
       setAssignedWorkerId(data.assigned_worker_id || "");
@@ -119,18 +133,33 @@ const ReportDetail = () => {
     try {
       const { data, error } = await supabase
         .from("report_status_history")
-        .select(`
-          *,
-          profiles!report_status_history_changed_by_fkey (
-            full_name
-          )
-        `)
+        .select("*")
         .eq("report_id", id)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Status history error:", error);
+        setStatusHistory([]);
+        return;
+      }
 
-      setStatusHistory(data || []);
+      // Fetch profiles for each history entry
+      const historyWithProfiles = await Promise.all(
+        (data || []).map(async (entry) => {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("user_id", entry.changed_by)
+            .single();
+
+          return {
+            ...entry,
+            profiles: profile || { full_name: null }
+          };
+        })
+      );
+
+      setStatusHistory(historyWithProfiles);
     } catch (error: any) {
       console.error("Error loading status history:", error);
     }
@@ -187,15 +216,16 @@ const ReportDetail = () => {
 
       // Add status history entry if status changed
       if (shouldUpdateStatus) {
+        const { data: userData } = await supabase.auth.getUser();
         const { error: historyError } = await supabase
           .from("report_status_history")
-          .insert({
+          .insert([{
             report_id: report.id,
-            old_status: report.status,
-            new_status: newStatus,
+            old_status: report.status as any,
+            new_status: newStatus as any,
             notes: statusNotes || null,
-            changed_by: (await supabase.auth.getUser()).data.user?.id,
-          });
+            changed_by: userData.user?.id || "",
+          }]);
 
         if (historyError) throw historyError;
       }
@@ -375,21 +405,21 @@ const ReportDetail = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <h4 className="font-medium text-sm">Name</h4>
-                  <p className="text-sm">{report.profiles.full_name}</p>
+                  <p className="text-sm">{report.profiles?.full_name || 'Anonymous'}</p>
                 </div>
                 <div>
                   <h4 className="font-medium text-sm flex items-center gap-1">
                     <Mail className="h-3 w-3" />
                     Email
                   </h4>
-                  <p className="text-sm">{report.profiles.email}</p>
+                  <p className="text-sm">{report.profiles?.email || 'Not provided'}</p>
                 </div>
                 <div>
                   <h4 className="font-medium text-sm flex items-center gap-1">
                     <Phone className="h-3 w-3" />
                     Phone
                   </h4>
-                  <p className="text-sm">{report.profiles.phone || 'Not provided'}</p>
+                  <p className="text-sm">{report.profiles?.phone || 'Not provided'}</p>
                 </div>
               </div>
             </CardContent>
@@ -506,12 +536,12 @@ const ReportDetail = () => {
                       <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-medium">
-                        Status changed to {entry.new_status.replace('_', ' ')}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        by {entry.profiles.full_name} • {formatDate(entry.created_at)}
-                      </p>
+                    <p className="text-sm font-medium">
+                      Status changed to {entry.new_status.replace('_', ' ')}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      by {entry.profiles?.full_name || 'System'} • {formatDate(entry.created_at)}
+                    </p>
                       {entry.notes && (
                         <p className="text-xs text-muted-foreground mt-1 italic">
                           "{entry.notes}"

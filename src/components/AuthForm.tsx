@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, Building2 } from "lucide-react";
+import PasswordReset from "./PasswordReset";
 
 interface AuthFormProps {
   onSuccess: () => void;
@@ -15,6 +16,7 @@ interface AuthFormProps {
 
 const AuthForm = ({ onSuccess }: AuthFormProps) => {
   const [loading, setLoading] = useState(false);
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -128,6 +130,14 @@ const AuthForm = ({ onSuccess }: AuthFormProps) => {
     }
   };
 
+  if (showPasswordReset) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <PasswordReset onBack={() => setShowPasswordReset(false)} />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <Card className="w-full max-w-md">
@@ -172,6 +182,14 @@ const AuthForm = ({ onSuccess }: AuthFormProps) => {
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Sign In
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="link" 
+                  onClick={() => setShowPasswordReset(true)}
+                  className="w-full text-sm"
+                >
+                  Forgot your password?
                 </Button>
               </form>
             </TabsContent>

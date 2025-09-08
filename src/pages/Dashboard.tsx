@@ -22,8 +22,8 @@ interface RecentReport {
   status: string;
   created_at: string;
   profiles: {
-    full_name: string;
-  };
+    full_name: string | null;
+  } | null;
 }
 
 const Dashboard = () => {
@@ -61,26 +61,35 @@ const Dashboard = () => {
         pendingReports: pending,
       });
 
-      // Load recent reports
+      // Load recent reports - simple approach without joins
       const { data: recentData, error: recentError } = await supabase
         .from("reports")
-        .select(`
-          id,
-          report_number,
-          title,
-          category,
-          status,
-          created_at,
-          profiles!reports_citizen_id_fkey (
-            full_name
-          )
-        `)
+        .select("id, report_number, title, category, status, created_at, citizen_id")
         .order("created_at", { ascending: false })
         .limit(5);
 
-      if (recentError) throw recentError;
-
-      setRecentReports(recentData || []);
+      if (recentError) {
+        console.error("Recent reports error:", recentError);
+        setRecentReports([]);
+      } else {
+        // Fetch profiles for each report
+        const reportsWithProfiles = await Promise.all(
+          (recentData || []).map(async (report) => {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("full_name")
+              .eq("user_id", report.citizen_id)
+              .single();
+            
+            return {
+              ...report,
+              profiles: profile || { full_name: null }
+            };
+          })
+        );
+        
+        setRecentReports(reportsWithProfiles);
+      }
     } catch (error: any) {
       console.error("Error loading dashboard data:", error);
       toast({
