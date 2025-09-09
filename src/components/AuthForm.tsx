@@ -395,7 +395,7 @@ const AuthForm = ({ onSuccess }: AuthFormProps) => {
                       type="tel"
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      placeholder="+1234567890"
+                      placeholder="+91 98765 43210"
                       required
                     />
                   </div>
@@ -447,7 +447,7 @@ const AuthForm = ({ onSuccess }: AuthFormProps) => {
                         type="tel"
                         value={formData.phone}
                         onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                        placeholder="+1234567890"
+                        placeholder="+91 98765 43210"
                       />
                     </div>
                   </>
@@ -459,7 +459,7 @@ const AuthForm = ({ onSuccess }: AuthFormProps) => {
                       type="tel"
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      placeholder="+1234567890"
+                      placeholder="+91 98765 43210"
                       required
                     />
                   </div>
