@@ -7,12 +7,16 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { User, Session } from "@supabase/supabase-js";
 import Layout from "./components/Layout";
+import CitizenLayout from "./components/CitizenLayout";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Reports from "./pages/Reports";
 import ReportDetail from "./pages/ReportDetail";
 import Workers from "./pages/Workers";
 import Analytics from "./pages/Analytics";
+import CitizenDashboard from "./pages/CitizenDashboard";
+import SubmitReport from "./pages/SubmitReport";
+import MyReports from "./pages/MyReports";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 
@@ -84,10 +88,10 @@ const App = () => {
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={user ? <Navigate to="/dashboard" /> : <Index />} />
-            <Route path="/auth" element={!user ? <Auth /> : <Navigate to="/dashboard" />} />
+            <Route path="/" element={user ? (userRole === "admin" ? <Navigate to="/dashboard" /> : <Navigate to="/citizen-dashboard" />) : <Index />} />
+            <Route path="/auth" element={!user ? <Auth /> : (userRole === "admin" ? <Navigate to="/dashboard" /> : <Navigate to="/citizen-dashboard" />)} />
             
-            {/* Protected Admin Routes */}
+            {/* Admin Routes */}
             {user && userRole === "admin" && (
               <>
                 <Route path="/dashboard" element={<Layout userRole={userRole}><Dashboard /></Layout>} />
@@ -98,9 +102,14 @@ const App = () => {
               </>
             )}
             
-            {/* Redirect unauthorized users */}
-            {user && userRole !== "admin" && (
-              <Route path="*" element={<div className="p-6 text-center"><h1>Access Denied</h1><p>Admin access required</p></div>} />
+            {/* Citizen Routes */}
+            {user && (userRole === "citizen" || userRole === "") && (
+              <>
+                <Route path="/citizen-dashboard" element={<CitizenLayout><CitizenDashboard /></CitizenLayout>} />
+                <Route path="/submit-report" element={<CitizenLayout><SubmitReport /></CitizenLayout>} />
+                <Route path="/my-reports" element={<CitizenLayout><MyReports /></CitizenLayout>} />
+                <Route path="/reports/:id" element={<CitizenLayout><ReportDetail /></CitizenLayout>} />
+              </>
             )}
             
             {/* Redirect unauthenticated users */}
@@ -108,6 +117,7 @@ const App = () => {
               <Route path="*" element={<Navigate to="/auth" />} />
             )}
             
+            {/* 404 fallback */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
