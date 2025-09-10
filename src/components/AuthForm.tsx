@@ -97,14 +97,39 @@ const AuthForm = ({ onSuccess }: AuthFormProps) => {
     setLoading(true);
 
     try {
-      // Check if admin email - bypass OTP
+      // Check if admin email - create a session directly for dev
       if (formData.email === ADMIN_EMAIL) {
-        // For admin, sign in directly (you can add password check here later if needed)
-        const { error } = await supabase.auth.signInWithOtp({
+        // For development only - create a temporary admin session
+        const { data, error } = await supabase.auth.signInWithPassword({
           email: formData.email,
+          password: 'dev-admin-password', // This is just for dev access
         });
 
-        if (error) throw error;
+        if (error) {
+          // If password login fails, create the user first
+          const { error: signUpError } = await supabase.auth.signUp({
+            email: formData.email,
+            password: 'dev-admin-password',
+            options: {
+              data: {
+                full_name: 'Admin Developer',
+                role: 'admin'
+              }
+            }
+          });
+
+          if (signUpError && !signUpError.message.includes('already registered')) {
+            throw signUpError;
+          }
+
+          // Try signing in again
+          const { error: signInError } = await supabase.auth.signInWithPassword({
+            email: formData.email,
+            password: 'dev-admin-password',
+          });
+
+          if (signInError) throw signInError;
+        }
 
         toast({
           title: "Admin access granted!",
@@ -119,11 +144,16 @@ const AuthForm = ({ onSuccess }: AuthFormProps) => {
       const { error } = await supabase.auth.signInWithOtp({
         email: formData.email,
         options: {
-          emailRedirectTo: `${window.location.origin}/dashboard`,
+          emailRedirectTo: `${window.location.origin}/`,
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        if (error.message.includes('rate limit')) {
+          throw new Error('Too many requests. Please wait a moment before trying again.');
+        }
+        throw error;
+      }
 
       setCurrentStep('otp');
       toast({
@@ -282,13 +312,13 @@ const AuthForm = ({ onSuccess }: AuthFormProps) => {
                   />
                 </div>
                 {formData.email === ADMIN_EMAIL && (
-                  <p className="text-sm text-muted-foreground">
-                    Admin email detected - no OTP required
+                  <p className="text-sm text-success">
+                    🔑 Developer admin access - password login enabled
                   </p>
                 )}
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {formData.email === ADMIN_EMAIL ? 'Sign In' : 'Send OTP'}
+                  {formData.email === ADMIN_EMAIL ? 'Sign In as Admin' : 'Send OTP'}
                 </Button>
               </form>
             </TabsContent>
