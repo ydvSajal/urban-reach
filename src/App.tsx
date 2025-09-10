@@ -29,42 +29,37 @@ const App = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          // Get user profile to determine role
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("role")
-            .eq("user_id", session.user.id)
-            .single();
-          
-          setUserRole(profile?.role || "citizen");
-        } else {
-          setUserRole("");
-        }
+    const fetchRole = async (userId: string) => {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("user_id", userId)
+        .single();
+      setUserRole(profile?.role || "citizen");
+    };
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      // Only synchronous updates here to prevent deadlocks
+      setSession(session);
+      setUser(session?.user ?? null);
+      setUserRole(""); // allow citizen routes immediately
+
+      if (session?.user) {
+        setTimeout(() => {
+          fetchRole(session.user.id).finally(() => setLoading(false));
+        }, 0);
+      } else {
         setLoading(false);
       }
-    );
+    });
 
-    // Get initial session
+    // Get initial session AFTER listener is set
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      setUserRole("");
       if (session?.user) {
-        supabase
-          .from("profiles")
-          .select("role")
-          .eq("user_id", session.user.id)
-          .single()
-          .then(({ data: profile }) => {
-            setUserRole(profile?.role || "citizen");
-            setLoading(false);
-          });
+        fetchRole(session.user.id).finally(() => setLoading(false));
       } else {
         setLoading(false);
       }
@@ -92,7 +87,7 @@ const App = () => {
             <Route path="/auth" element={!user ? <Auth /> : (userRole === "admin" ? <Navigate to="/dashboard" /> : <Navigate to="/citizen-dashboard" />)} />
             
             {/* Admin Routes */}
-            {user && userRole === "admin" && (
+            {user && (userRole === "admin" || (session?.user?.email === "sajalkumar1765@gmail.com")) && (
               <>
                 <Route path="/dashboard" element={<Layout userRole={userRole}><Dashboard /></Layout>} />
                 <Route path="/reports" element={<Layout userRole={userRole}><Reports /></Layout>} />
@@ -103,7 +98,7 @@ const App = () => {
             )}
             
             {/* Citizen Routes */}
-            {user && (userRole === "citizen" || userRole === "") && (
+            {user && ((userRole === "citizen" || userRole === "" || (session?.user?.email === "sajalkumar1765@gmail.com"))) && (
               <>
                 <Route path="/citizen-dashboard" element={<CitizenLayout><CitizenDashboard /></CitizenLayout>} />
                 <Route path="/submit-report" element={<CitizenLayout><SubmitReport /></CitizenLayout>} />

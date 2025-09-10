@@ -13,7 +13,7 @@ import {
   User
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface CitizenLayoutProps {
   children: ReactNode;
@@ -23,6 +23,13 @@ const CitizenLayout = ({ children }: CitizenLayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUserEmail(user?.email ?? null);
+    });
+  }, []);
+  const isDev = userEmail === "sajalkumar1765@gmail.com";
 
   const handleSignOut = async () => {
     try {
@@ -128,6 +135,18 @@ const CitizenLayout = ({ children }: CitizenLayoutProps) => {
           {children}
         </main>
       </div>
+
+      {isDev && (
+        <Button
+          variant="secondary"
+          size="sm"
+          className="fixed bottom-4 right-4 z-50"
+          onClick={() => navigate("/dashboard")}
+          aria-label="Switch to Admin View (Dev Only)"
+        >
+          Dev: Admin View
+        </Button>
+      )}
     </div>
   );
 };

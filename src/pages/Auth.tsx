@@ -5,7 +5,7 @@ const Auth = () => {
   const navigate = useNavigate();
 
   const handleAuthSuccess = () => {
-    navigate("/dashboard");
+    navigate("/");
   };
 
   return <AuthForm onSuccess={handleAuthSuccess} />;
