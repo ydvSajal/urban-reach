@@ -17,7 +17,7 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
-    --primary: 222.2 47.4% 11.2%;
+    --primary: 217 91% 45%;
     --primary-foreground: 210 40% 98%;
 
     --secondary: 210 40% 96.1%;
@@ -34,7 +34,26 @@ All colors MUST be HSL.
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --ring: 217 91% 45%;
+
+    /* Status colors */
+    --status-pending: 45 93% 47%;
+    --status-acknowledged: 221 83% 53%;
+    --status-in-progress: 25 95% 53%;
+    --status-resolved: 142 76% 36%;
+    --status-closed: 215 20% 65%;
+
+    /* Priority colors */
+    --priority-high: 0 84% 60%;
+    --priority-medium: 25 95% 53%;
+    --priority-low: 142 76% 36%;
+
+    /* Chart colors */
+    --chart-1: 217 91% 45%;
+    --chart-2: 142 76% 36%;
+    --chart-3: 25 95% 53%;
+    --chart-4: 0 84% 60%;
+    --chart-5: 263 70% 50%;
 
     --radius: 0.5rem;
 
@@ -65,7 +84,7 @@ All colors MUST be HSL.
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 210 40% 98%;
+    --primary: 217 91% 60%;
     --primary-foreground: 222.2 47.4% 11.2%;
 
     --secondary: 217.2 32.6% 17.5%;
@@ -82,7 +101,14 @@ All colors MUST be HSL.
 
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --ring: 217 91% 60%;
+
+    /* Status colors (dark mode) */
+    --status-pending: 45 93% 60%;
+    --status-acknowledged: 221 83% 60%;
+    --status-in-progress: 25 95% 60%;
+    --status-resolved: 142 76% 50%;
+    --status-closed: 215 20% 65%;
     --sidebar-background: 240 5.9% 10%;
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 224.3 76.3% 48%;

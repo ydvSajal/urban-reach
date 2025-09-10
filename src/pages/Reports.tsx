@@ -135,23 +135,23 @@ const Reports = () => {
     setFilteredReports(filtered);
   };
 
-  const getStatusBadgeVariant = (status: string) => {
+  const getStatusBadgeColor = (status: string) => {
     switch (status) {
-      case 'pending': return 'secondary';
-      case 'acknowledged': return 'outline';
-      case 'in_progress': return 'default';
-      case 'resolved': return 'default';
-      case 'closed': return 'secondary';
-      default: return 'secondary';
+      case 'pending': return 'bg-status-pending/10 text-status-pending border-status-pending/20';
+      case 'acknowledged': return 'bg-status-acknowledged/10 text-status-acknowledged border-status-acknowledged/20';
+      case 'in_progress': return 'bg-status-in-progress/10 text-status-in-progress border-status-in-progress/20';
+      case 'resolved': return 'bg-status-resolved/10 text-status-resolved border-status-resolved/20';
+      case 'closed': return 'bg-status-closed/10 text-status-closed border-status-closed/20';
+      default: return 'bg-muted text-muted-foreground border-border';
     }
   };
 
-  const getPriorityBadgeVariant = (priority: string) => {
+  const getPriorityBadgeColor = (priority: string) => {
     switch (priority) {
-      case 'high': return 'destructive';
-      case 'medium': return 'default';
-      case 'low': return 'secondary';
-      default: return 'secondary';
+      case 'high': return 'bg-priority-high/10 text-priority-high border-priority-high/20';
+      case 'medium': return 'bg-priority-medium/10 text-priority-medium border-priority-medium/20';
+      case 'low': return 'bg-priority-low/10 text-priority-low border-priority-low/20';
+      default: return 'bg-muted text-muted-foreground border-border';
     }
   };
 
@@ -327,17 +327,17 @@ const Reports = () => {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="outline">
+                        <Badge variant="outline" className="capitalize">
                           {report.category.replace('_', ' ')}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={getStatusBadgeVariant(report.status)}>
+                        <Badge className={`border capitalize ${getStatusBadgeColor(report.status)}`}>
                           {report.status.replace('_', ' ')}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={getPriorityBadgeVariant(report.priority)}>
+                        <Badge className={`border capitalize ${getPriorityBadgeColor(report.priority)}`}>
                           {report.priority}
                         </Badge>
                       </TableCell>

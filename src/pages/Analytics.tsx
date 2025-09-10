@@ -3,13 +3,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { TrendingUp, FileText, Clock, CheckCircle, AlertTriangle, BarChart3 } from "lucide-react";
+import { TrendingUp, FileText, Clock, CheckCircle, AlertTriangle, BarChart3, PieChart, Activity } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { PieChart as RechartsPieChart, Pie, Cell, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface AnalyticsData {
-  reportsByCategory: Array<{ name: string; value: number; percentage: number }>;
-  reportsByStatus: Array<{ name: string; value: number; percentage: number }>;
-  reportsByPriority: Array<{ name: string; value: number; percentage: number }>;
+  reportsByCategory: Array<{ name: string; value: number; percentage: number; fill: string }>;
+  reportsByStatus: Array<{ name: string; value: number; percentage: number; fill: string }>;
+  reportsByPriority: Array<{ name: string; value: number; percentage: number; fill: string }>;
+  reportsOverTime: Array<{ date: string; reports: number; resolved: number }>;
   avgResolutionTime: number;
   totalReports: number;
   openReports: number;
@@ -21,6 +23,7 @@ const Analytics = () => {
     reportsByCategory: [],
     reportsByStatus: [],
     reportsByPriority: [],
+    reportsOverTime: [],
     avgResolutionTime: 0,
     totalReports: 0,
     openReports: 0,
@@ -65,6 +68,7 @@ const Analytics = () => {
 
   const processReportsData = (reports: any[]): AnalyticsData => {
     const total = reports.length;
+    const colors = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
 
     // Reports by category
     const categoryCount = reports.reduce((acc, report) => {
@@ -72,10 +76,11 @@ const Analytics = () => {
       return acc;
     }, {});
 
-    const reportsByCategory = Object.entries(categoryCount).map(([category, count]) => ({
+    const reportsByCategory = Object.entries(categoryCount).map(([category, count], index) => ({
       name: category.replace('_', ' ').toUpperCase(),
       value: count as number,
-      percentage: total > 0 ? Math.round(((count as number) / total) * 100) : 0
+      percentage: total > 0 ? Math.round(((count as number) / total) * 100) : 0,
+      fill: colors[index % colors.length]
     }));
 
     // Reports by status
@@ -84,10 +89,19 @@ const Analytics = () => {
       return acc;
     }, {});
 
+    const statusColors = {
+      pending: 'hsl(var(--status-pending))',
+      acknowledged: 'hsl(var(--status-acknowledged))',
+      in_progress: 'hsl(var(--status-in-progress))',
+      resolved: 'hsl(var(--status-resolved))',
+      closed: 'hsl(var(--status-closed))'
+    };
+
     const reportsByStatus = Object.entries(statusCount).map(([status, count]) => ({
       name: status.replace('_', ' ').toUpperCase(),
       value: count as number,
-      percentage: total > 0 ? Math.round(((count as number) / total) * 100) : 0
+      percentage: total > 0 ? Math.round(((count as number) / total) * 100) : 0,
+      fill: statusColors[status as keyof typeof statusColors] || colors[0]
     }));
 
     // Reports by priority
@@ -96,11 +110,35 @@ const Analytics = () => {
       return acc;
     }, {});
 
+    const priorityColors = {
+      high: 'hsl(var(--priority-high))',
+      medium: 'hsl(var(--priority-medium))',
+      low: 'hsl(var(--priority-low))'
+    };
+
     const reportsByPriority = Object.entries(priorityCount).map(([priority, count]) => ({
       name: priority.toUpperCase(),
       value: count as number,
-      percentage: total > 0 ? Math.round(((count as number) / total) * 100) : 0
+      percentage: total > 0 ? Math.round(((count as number) / total) * 100) : 0,
+      fill: priorityColors[priority as keyof typeof priorityColors] || colors[0]
     }));
+
+    // Reports over time (last 7 days)
+    const reportsOverTime = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+      
+      const dayReports = reports.filter(r => r.created_at.startsWith(dateStr));
+      const dayResolved = dayReports.filter(r => r.resolved_at && r.resolved_at.startsWith(dateStr));
+      
+      reportsOverTime.push({
+        date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        reports: dayReports.length,
+        resolved: dayResolved.length
+      });
+    }
 
     // Calculate average resolution time
     const resolvedReports = reports.filter(r => r.resolved_at);
@@ -116,6 +154,7 @@ const Analytics = () => {
       reportsByCategory,
       reportsByStatus,
       reportsByPriority,
+      reportsOverTime,
       avgResolutionTime,
       totalReports: total,
       openReports: reports.filter(r => !['resolved', 'closed'].includes(r.status)).length,
@@ -129,28 +168,28 @@ const Analytics = () => {
       value: data.totalReports,
       description: `Last ${timeRange} days`,
       icon: FileText,
-      color: "text-blue-600",
+      color: "text-chart-1",
     },
     {
       title: "Open Reports",
       value: data.openReports,
       description: "Currently active",
       icon: Clock,
-      color: "text-orange-600",
+      color: "text-chart-3",
     },
     {
       title: "Resolved Reports",
       value: data.resolvedReports,
       description: "Successfully closed",
       icon: CheckCircle,
-      color: "text-green-600",
+      color: "text-chart-2",
     },
     {
       title: "Avg Resolution Time",
       value: `${data.avgResolutionTime.toFixed(1)} days`,
       description: "Average time to resolve",
       icon: TrendingUp,
-      color: "text-purple-600",
+      color: "text-chart-5",
     },
   ];
 
@@ -212,38 +251,45 @@ const Analytics = () => {
         ))}
       </div>
 
-      {/* Simple Charts Grid */}
+      {/* Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Reports by Category */}
+        {/* Reports by Category - Pie Chart */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5" />
+              <PieChart className="h-5 w-5" />
               Reports by Category
             </CardTitle>
             <CardDescription>Distribution of issues by type</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {data.reportsByCategory.map((item) => (
-                <div key={item.name} className="flex items-center justify-between">
-                  <span className="text-sm font-medium">{item.name}</span>
-                  <div className="flex items-center gap-3 flex-1 max-w-[200px]">
-                    <Progress value={item.percentage} className="flex-1" />
-                    <span className="text-sm text-muted-foreground w-12 text-right">
-                      {item.value} ({item.percentage}%)
-                    </span>
-                  </div>
-                </div>
-              ))}
-              {data.reportsByCategory.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">No data available</p>
-              )}
-            </div>
+            {data.reportsByCategory.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <RechartsPieChart>
+                  <Pie
+                    data={data.reportsByCategory}
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={100}
+                    dataKey="value"
+                    label={({ name, percentage }) => `${name}: ${percentage}%`}
+                  >
+                    {data.reportsByCategory.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </RechartsPieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                No data available
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Reports by Status */}
+        {/* Reports by Status - Pie Chart */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -253,51 +299,87 @@ const Analytics = () => {
             <CardDescription>Current status distribution</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {data.reportsByStatus.map((item) => (
-                <div key={item.name} className="flex items-center justify-between">
-                  <span className="text-sm font-medium">{item.name}</span>
-                  <div className="flex items-center gap-3 flex-1 max-w-[200px]">
-                    <Progress value={item.percentage} className="flex-1" />
-                    <span className="text-sm text-muted-foreground w-12 text-right">
-                      {item.value} ({item.percentage}%)
-                    </span>
-                  </div>
-                </div>
-              ))}
-              {data.reportsByStatus.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">No data available</p>
-              )}
-            </div>
+            {data.reportsByStatus.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <RechartsPieChart>
+                  <Pie
+                    data={data.reportsByStatus}
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={100}
+                    dataKey="value"
+                    label={({ name, percentage }) => `${name}: ${percentage}%`}
+                  >
+                    {data.reportsByStatus.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                </RechartsPieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                No data available
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Reports by Priority */}
+        {/* Reports Over Time - Line Chart */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5" />
+              Reports Over Time
+            </CardTitle>
+            <CardDescription>Daily report submissions and resolutions (Last 7 days)</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {data.reportsOverTime.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={data.reportsOverTime}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" />
+                  <YAxis />
+                  <Tooltip />
+                  <Legend />
+                  <Line type="monotone" dataKey="reports" stroke="hsl(var(--chart-1))" strokeWidth={2} name="New Reports" />
+                  <Line type="monotone" dataKey="resolved" stroke="hsl(var(--chart-2))" strokeWidth={2} name="Resolved Reports" />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                No data available
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Reports by Priority - Bar Chart */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5" />
+              <BarChart3 className="h-5 w-5" />
               Reports by Priority
             </CardTitle>
             <CardDescription>Priority level distribution</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {data.reportsByPriority.map((item) => (
-                <div key={item.name} className="flex items-center justify-between">
-                  <span className="text-sm font-medium">{item.name}</span>
-                  <div className="flex items-center gap-3 flex-1 max-w-[200px]">
-                    <Progress value={item.percentage} className="flex-1" />
-                    <span className="text-sm text-muted-foreground w-12 text-right">
-                      {item.value} ({item.percentage}%)
-                    </span>
-                  </div>
-                </div>
-              ))}
-              {data.reportsByPriority.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">No data available</p>
-              )}
-            </div>
+            {data.reportsByPriority.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={data.reportsByPriority}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar dataKey="value" fill="hsl(var(--chart-1))" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                No data available
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -306,47 +388,50 @@ const Analytics = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5" />
-              Summary Statistics
+              Key Performance Indicators
             </CardTitle>
-            <CardDescription>Key performance indicators</CardDescription>
+            <CardDescription>Important metrics at a glance</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">Resolution Rate</span>
-                <div className="flex items-center gap-2">
-                  <Progress 
-                    value={data.totalReports > 0 ? Math.round((data.resolvedReports / data.totalReports) * 100) : 0} 
-                    className="w-20" 
-                  />
-                  <span className="text-sm font-bold">
-                    {data.totalReports > 0 ? Math.round((data.resolvedReports / data.totalReports) * 100) : 0}%
-                  </span>
+            <div className="space-y-6">
+              <div className="text-center p-4 bg-gradient-to-br from-chart-2/10 to-chart-2/5 rounded-lg border border-chart-2/20">
+                <div className="text-3xl font-bold text-chart-2 mb-1">
+                  {data.totalReports > 0 ? Math.round((data.resolvedReports / data.totalReports) * 100) : 0}%
+                </div>
+                <div className="text-sm font-medium mb-2">Resolution Rate</div>
+                <Progress 
+                  value={data.totalReports > 0 ? Math.round((data.resolvedReports / data.totalReports) * 100) : 0} 
+                  className="h-2"
+                />
+                <div className="text-xs text-muted-foreground mt-2">
+                  {data.resolvedReports} of {data.totalReports} resolved
                 </div>
               </div>
               
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">Avg Resolution Time</span>
-                <span className="text-sm font-bold">
-                  {data.avgResolutionTime.toFixed(1)} days
-                </span>
-              </div>
-              
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">Most Common Category</span>
-                <span className="text-sm font-bold">
-                  {data.reportsByCategory.length > 0 
-                    ? data.reportsByCategory.reduce((prev, current) => (prev.value > current.value) ? prev : current).name
-                    : "N/A"
-                  }
-                </span>
-              </div>
-              
-              <div className="flex justify-between items-center">
-                <span className="text-sm font-medium">Open vs Resolved</span>
-                <span className="text-sm font-bold">
-                  {data.openReports} / {data.resolvedReports}
-                </span>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                  <span className="text-sm font-medium">Avg Resolution Time</span>
+                  <span className="text-sm font-bold text-chart-5">
+                    {data.avgResolutionTime.toFixed(1)} days
+                  </span>
+                </div>
+                
+                <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                  <span className="text-sm font-medium">Most Common Category</span>
+                  <span className="text-sm font-bold text-chart-1">
+                    {data.reportsByCategory.length > 0 
+                      ? data.reportsByCategory.reduce((prev, current) => (prev.value > current.value) ? prev : current).name
+                      : "N/A"
+                    }
+                  </span>
+                </div>
+                
+                <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
+                  <span className="text-sm font-medium">Open vs Resolved</span>
+                  <span className="text-sm font-bold">
+                    <span className="text-chart-3">{data.openReports}</span> / <span className="text-chart-2">{data.resolvedReports}</span>
+                  </span>
+                </div>
               </div>
             </div>
           </CardContent>

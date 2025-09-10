@@ -112,12 +112,12 @@ const Dashboard = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending': return 'text-yellow-600 bg-yellow-100';
-      case 'acknowledged': return 'text-blue-600 bg-blue-100';
-      case 'in_progress': return 'text-orange-600 bg-orange-100';
-      case 'resolved': return 'text-green-600 bg-green-100';
-      case 'closed': return 'text-gray-600 bg-gray-100';
-      default: return 'text-gray-600 bg-gray-100';
+      case 'pending': return 'text-status-pending bg-status-pending/10 border-status-pending/20';
+      case 'acknowledged': return 'text-status-acknowledged bg-status-acknowledged/10 border-status-acknowledged/20';
+      case 'in_progress': return 'text-status-in-progress bg-status-in-progress/10 border-status-in-progress/20';
+      case 'resolved': return 'text-status-resolved bg-status-resolved/10 border-status-resolved/20';
+      case 'closed': return 'text-status-closed bg-status-closed/10 border-status-closed/20';
+      default: return 'text-muted-foreground bg-muted border-border';
     }
   };
 
@@ -127,28 +127,28 @@ const Dashboard = () => {
       value: stats.totalReports,
       description: "All time reports",
       icon: FileText,
-      color: "text-blue-600",
+      color: "text-chart-1",
     },
     {
       title: "Open Reports",
       value: stats.openReports,
       description: "Currently active",
       icon: Clock,
-      color: "text-orange-600",
+      color: "text-chart-3",
     },
     {
       title: "Resolved Reports",
       value: stats.resolvedReports,
       description: "Successfully closed",
       icon: CheckCircle,
-      color: "text-green-600",
+      color: "text-chart-2",
     },
     {
       title: "Pending Reports",
       value: stats.pendingReports,
       description: "Awaiting attention",
       icon: AlertCircle,
-      color: "text-red-600",
+      color: "text-chart-4",
     },
   ];
 
@@ -230,7 +230,7 @@ const Dashboard = () => {
                         <p className="text-sm font-medium leading-none">
                           #{report.report_number}
                         </p>
-                        <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(report.status)}`}>
+                        <span className={`px-2 py-1 text-xs rounded-full border ${getStatusColor(report.status)}`}>
                           {report.status.replace('_', ' ')}
                         </span>
                       </div>
