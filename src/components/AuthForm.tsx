@@ -99,45 +99,53 @@ const AuthForm = ({ onSuccess }: AuthFormProps) => {
     try {
       // Check if admin email - create a session directly for dev
       if (formData.email === ADMIN_EMAIL) {
-        // For development only - create a temporary admin session
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: formData.email,
-          password: 'dev-admin-password', // This is just for dev access
-        });
-
-        if (error) {
-          // If password login fails, create the user first
-          const { error: signUpError } = await supabase.auth.signUp({
+        try {
+          // For development only - create a temporary admin session
+          let { error } = await supabase.auth.signInWithPassword({
             email: formData.email,
             password: 'dev-admin-password',
-            options: {
-              data: {
-                full_name: 'Admin Developer',
-                role: 'admin'
-              }
-            }
           });
 
-          if (signUpError && !signUpError.message.includes('already registered')) {
-            throw signUpError;
+          if (error && error.message.includes('Invalid login credentials')) {
+            // Create the admin user if it doesn't exist
+            const { error: signUpError } = await supabase.auth.signUp({
+              email: formData.email,
+              password: 'dev-admin-password',
+              options: {
+                emailRedirectTo: undefined, // Disable email confirmation for dev
+                data: {
+                  full_name: 'Admin Developer',
+                  role: 'admin'
+                }
+              }
+            });
+
+            if (signUpError && !signUpError.message.includes('already registered')) {
+              throw signUpError;
+            }
+
+            // Try signing in again after signup
+            const { error: signInError } = await supabase.auth.signInWithPassword({
+              email: formData.email,
+              password: 'dev-admin-password',
+            });
+
+            if (signInError) throw signInError;
+          } else if (error) {
+            throw error;
           }
 
-          // Try signing in again
-          const { error: signInError } = await supabase.auth.signInWithPassword({
-            email: formData.email,
-            password: 'dev-admin-password',
+          toast({
+            title: "Admin access granted!",
+            description: "Welcome, administrator!",
           });
-
-          if (signInError) throw signInError;
+          
+          onSuccess();
+          return;
+        } catch (adminError) {
+          console.error('Admin login error:', adminError);
+          throw adminError;
         }
-
-        toast({
-          title: "Admin access granted!",
-          description: "Welcome, administrator!",
-        });
-        
-        onSuccess();
-        return;
       }
 
       // For regular users, send email OTP

@@ -29,7 +29,13 @@ const App = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchRole = async (userId: string) => {
+    const fetchRole = async (userId: string, email: string) => {
+      // Special handling for dev admin
+      if (email === "sajalkumar1765@gmail.com") {
+        setUserRole("admin");
+        return;
+      }
+      
       const { data: profile } = await supabase
         .from("profiles")
         .select("role")
@@ -39,16 +45,21 @@ const App = () => {
     };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      // Only synchronous updates here to prevent deadlocks
       setSession(session);
       setUser(session?.user ?? null);
-      setUserRole(""); // allow citizen routes immediately
 
       if (session?.user) {
-        setTimeout(() => {
-          fetchRole(session.user.id).finally(() => setLoading(false));
-        }, 0);
+        // Set role immediately for dev admin
+        if (session.user.email === "sajalkumar1765@gmail.com") {
+          setUserRole("admin");
+          setLoading(false);
+        } else {
+          setTimeout(() => {
+            fetchRole(session.user.id, session.user.email || "").finally(() => setLoading(false));
+          }, 0);
+        }
       } else {
+        setUserRole("");
         setLoading(false);
       }
     });
@@ -57,10 +68,15 @@ const App = () => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      setUserRole("");
       if (session?.user) {
-        fetchRole(session.user.id).finally(() => setLoading(false));
+        if (session.user.email === "sajalkumar1765@gmail.com") {
+          setUserRole("admin");
+          setLoading(false);
+        } else {
+          fetchRole(session.user.id, session.user.email || "").finally(() => setLoading(false));
+        }
       } else {
+        setUserRole("");
         setLoading(false);
       }
     });
@@ -87,7 +103,7 @@ const App = () => {
             <Route path="/auth" element={!user ? <Auth /> : (userRole === "admin" ? <Navigate to="/dashboard" /> : <Navigate to="/citizen-dashboard" />)} />
             
             {/* Admin Routes */}
-            {user && (userRole === "admin" || (session?.user?.email === "sajalkumar1765@gmail.com")) && (
+            {user && userRole === "admin" && (
               <>
                 <Route path="/dashboard" element={<Layout userRole={userRole}><Dashboard /></Layout>} />
                 <Route path="/reports" element={<Layout userRole={userRole}><Reports /></Layout>} />
@@ -98,7 +114,7 @@ const App = () => {
             )}
             
             {/* Citizen Routes */}
-            {user && ((userRole === "citizen" || userRole === "" || (session?.user?.email === "sajalkumar1765@gmail.com"))) && (
+            {user && (userRole === "citizen" || userRole === "admin") && (
               <>
                 <Route path="/citizen-dashboard" element={<CitizenLayout><CitizenDashboard /></CitizenLayout>} />
                 <Route path="/submit-report" element={<CitizenLayout><SubmitReport /></CitizenLayout>} />
