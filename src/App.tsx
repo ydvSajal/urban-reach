@@ -99,34 +99,23 @@ const App = () => {
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={user ? (userRole === "admin" ? <Navigate to="/dashboard" /> : <Navigate to="/citizen-dashboard" />) : <Index />} />
-            <Route path="/auth" element={!user ? <Auth /> : (userRole === "admin" ? <Navigate to="/dashboard" /> : <Navigate to="/citizen-dashboard" />)} />
+            {/* Welcome page */}
+            <Route path="/" element={<Index />} />
             
-            {/* Admin Routes */}
-            {user && userRole === "admin" && (
-              <>
-                <Route path="/dashboard" element={<Layout userRole={userRole}><Dashboard /></Layout>} />
-                <Route path="/reports" element={<Layout userRole={userRole}><Reports /></Layout>} />
-                <Route path="/reports/:id" element={<Layout userRole={userRole}><ReportDetail /></Layout>} />
-                <Route path="/workers" element={<Layout userRole={userRole}><Workers /></Layout>} />
-                <Route path="/analytics" element={<Layout userRole={userRole}><Analytics /></Layout>} />
-              </>
-            )}
+            {/* Admin Routes - accessible without authentication for now */}
+            <Route path="/dashboard" element={<Layout userRole="admin"><Dashboard /></Layout>} />
+            <Route path="/reports" element={<Layout userRole="admin"><Reports /></Layout>} />
+            <Route path="/reports/:id" element={<Layout userRole="admin"><ReportDetail /></Layout>} />
+            <Route path="/workers" element={<Layout userRole="admin"><Workers /></Layout>} />
+            <Route path="/analytics" element={<Layout userRole="admin"><Analytics /></Layout>} />
             
-            {/* Citizen Routes */}
-            {user && (userRole === "citizen" || userRole === "admin") && (
-              <>
-                <Route path="/citizen-dashboard" element={<CitizenLayout><CitizenDashboard /></CitizenLayout>} />
-                <Route path="/submit-report" element={<CitizenLayout><SubmitReport /></CitizenLayout>} />
-                <Route path="/my-reports" element={<CitizenLayout><MyReports /></CitizenLayout>} />
-                <Route path="/reports/:id" element={<CitizenLayout><ReportDetail /></CitizenLayout>} />
-              </>
-            )}
+            {/* Citizen Routes - accessible without authentication for now */}
+            <Route path="/citizen-dashboard" element={<CitizenLayout><CitizenDashboard /></CitizenLayout>} />
+            <Route path="/submit-report" element={<CitizenLayout><SubmitReport /></CitizenLayout>} />
+            <Route path="/my-reports" element={<CitizenLayout><MyReports /></CitizenLayout>} />
             
-            {/* Redirect unauthenticated users */}
-            {!user && (
-              <Route path="*" element={<Navigate to="/auth" />} />
-            )}
+            {/* Auth route - kept for future use but not required */}
+            <Route path="/auth" element={<Auth />} />
             
             {/* 404 fallback */}
             <Route path="*" element={<NotFound />} />
