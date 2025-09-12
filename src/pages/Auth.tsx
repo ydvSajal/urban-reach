@@ -1,14 +1,12 @@
 import AuthForm from "@/components/AuthForm";
-import { useNavigate } from "react-router-dom";
 
-const Auth = () => {
-  const navigate = useNavigate();
+interface AuthProps {
+  userType: 'admin' | 'citizen';
+  onSuccess: () => void;
+}
 
-  const handleAuthSuccess = () => {
-    navigate("/");
-  };
-
-  return <AuthForm onSuccess={handleAuthSuccess} />;
+const Auth = ({ userType, onSuccess }: AuthProps) => {
+  return <AuthForm userType={userType} onSuccess={onSuccess} />;
 };
 
 export default Auth;

@@ -114,8 +114,26 @@ const App = () => {
             <Route path="/submit-report" element={<CitizenLayout><SubmitReport /></CitizenLayout>} />
             <Route path="/my-reports" element={<CitizenLayout><MyReports /></CitizenLayout>} />
             
-            {/* Auth route - kept for future use but not required */}
-            <Route path="/auth" element={<Auth />} />
+            {/* Auth routes */}
+            <Route 
+              path="/auth/admin" 
+              element={
+                <Auth 
+                  userType="admin" 
+                  onSuccess={() => window.location.href = '/dashboard'} 
+                />
+              } 
+            />
+            <Route 
+              path="/auth/citizen" 
+              element={
+                <Auth 
+                  userType="citizen" 
+                  onSuccess={() => window.location.href = '/citizen-dashboard'} 
+                />
+              } 
+            />
+            <Route path="/auth" element={<Auth userType="citizen" onSuccess={() => window.location.href = '/'} />} />
             
             {/* 404 fallback */}
             <Route path="*" element={<NotFound />} />

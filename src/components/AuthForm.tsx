@@ -12,93 +12,26 @@ import PasswordReset from "./PasswordReset";
 
 interface AuthFormProps {
   onSuccess: () => void;
+  userType: 'admin' | 'citizen';
 }
 
-const AuthForm = ({ onSuccess }: AuthFormProps) => {
+const AuthForm = ({ onSuccess, userType }: AuthFormProps) => {
   const [loading, setLoading] = useState(false);
-  const [showPasswordReset, setShowPasswordReset] = useState(false);
-  const [showPhoneAuth, setShowPhoneAuth] = useState(false);
-  const [showOtpVerification, setShowOtpVerification] = useState(false);
   const [currentStep, setCurrentStep] = useState<'email' | 'otp'>('email');
-  const [authMethod] = useState<'email' | 'phone'>('email'); // Keep for backend compatibility
   const [formData, setFormData] = useState({
     email: "",
-    password: "",
-    phone: "",
     otp: "",
-    fullName: "",
-    role: "citizen" as "citizen" | "admin",
-    councilId: "",
   });
 
   const ADMIN_EMAIL = 'sajalkumar1765@gmail.com';
-
-  const [councils, setCounsils] = useState<Array<{ id: string; name: string; city: string }>>([]);
-  const [councilsLoaded, setCouncilsLoaded] = useState(false);
-
-  const loadCouncils = async () => {
-    if (councilsLoaded) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from("councils")
-        .select("id, name, city");
-      
-      if (error) throw error;
-      setCounsils(data || []);
-      setCouncilsLoaded(true);
-    } catch (error) {
-      console.error("Error loading councils:", error);
-    }
-  };
-
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      const redirectUrl = `${window.location.origin}/`;
-      
-      // Use email OTP for signup - no password required
-      const { error } = await supabase.auth.signInWithOtp({
-        email: formData.email,
-        options: {
-          emailRedirectTo: redirectUrl,
-          data: {
-            full_name: formData.fullName,
-            phone: formData.phone,
-            role: formData.role,
-            council_id: formData.councilId || null,
-          },
-        },
-      });
-
-      if (error) throw error;
-
-      setCurrentStep('otp');
-      toast({
-        title: "Account creation started!",
-        description: "Please check your email for the verification code to complete signup.",
-      });
-
-    } catch (error: any) {
-      toast({
-        title: "Error creating account",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      // Check if admin email - create a session directly for dev
-      if (formData.email === ADMIN_EMAIL) {
+      // Check if admin login and admin email
+      if (userType === 'admin' && formData.email === ADMIN_EMAIL) {
         try {
           // For development only - create a temporary admin session
           let { error } = await supabase.auth.signInWithPassword({
@@ -112,7 +45,7 @@ const AuthForm = ({ onSuccess }: AuthFormProps) => {
               email: formData.email,
               password: 'dev-admin-password',
               options: {
-                emailRedirectTo: undefined, // Disable email confirmation for dev
+                emailRedirectTo: undefined,
                 data: {
                   full_name: 'Admin Developer',
                   role: 'admin'
@@ -148,7 +81,7 @@ const AuthForm = ({ onSuccess }: AuthFormProps) => {
         }
       }
 
-      // For regular users, send email OTP
+      // For all other users, send email OTP
       const { error } = await supabase.auth.signInWithOtp({
         email: formData.email,
         options: {
@@ -210,34 +143,6 @@ const AuthForm = ({ onSuccess }: AuthFormProps) => {
     }
   };
 
-  const handleGoogleSignIn = async () => {
-    setLoading(true);
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/dashboard`,
-        },
-      });
-
-      if (error) throw error;
-    } catch (error: any) {
-      toast({
-        title: "Error with Google sign in",
-        description: error.message,
-        variant: "destructive",
-      });
-      setLoading(false);
-    }
-  };
-
-  if (showPasswordReset) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <PasswordReset onBack={() => setShowPasswordReset(false)} />
-      </div>
-    );
-  }
 
   // Show email OTP verification step
   if (currentStep === 'otp') {
@@ -294,115 +199,39 @@ const AuthForm = ({ onSuccess }: AuthFormProps) => {
           <div className="flex justify-center mb-4">
             <Building2 className="h-12 w-12 text-primary" />
           </div>
-          <CardTitle className="text-2xl">Municipal Portal</CardTitle>
+          <CardTitle className="text-2xl">
+            {userType === 'admin' ? 'Admin Login' : 'Citizen Login'}
+          </CardTitle>
           <CardDescription>
-            Access your council's administrative dashboard
+            {userType === 'admin' 
+              ? 'Access your council\'s administrative dashboard' 
+              : 'Access your citizen portal'
+            }
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="signin" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="signin">Sign In</TabsTrigger>
-              <TabsTrigger value="signup" onClick={loadCouncils}>Sign Up</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="signin">
-              <form onSubmit={handleSignIn} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="signin-email">Email</Label>
-                  <Input
-                    id="signin-email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="Enter your email address"
-                    required
-                  />
-                </div>
-                {formData.email === ADMIN_EMAIL && (
-                  <p className="text-sm text-success">
-                    🔑 Developer admin access - password login enabled
-                  </p>
-                )}
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {formData.email === ADMIN_EMAIL ? 'Sign In as Admin' : 'Send OTP'}
-                </Button>
-              </form>
-            </TabsContent>
-            
-            <TabsContent value="signup">
-              <form onSubmit={handleSignUp} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="signup-name">Full Name</Label>
-                  <Input
-                    id="signup-name"
-                    value={formData.fullName}
-                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                    required
-                  />
-                </div>
-                {/* Simplified signup form - only email */}
-                <div className="space-y-2">
-                  <Label htmlFor="signup-email">Email</Label>
-                  <Input
-                    id="signup-email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="Enter your email address"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-phone">Phone (Optional)</Label>
-                  <Input
-                    id="signup-phone"
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="+91 98765 43210"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="signup-role">Role</Label>
-                  <Select value={formData.role} onValueChange={(value: "citizen" | "admin") => setFormData({ ...formData, role: value })}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="citizen">Citizen</SelectItem>
-                      <SelectItem value="admin">Council Admin</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                {formData.role === "admin" && (
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-council">Council</Label>
-                    <Select value={formData.councilId} onValueChange={(value) => setFormData({ ...formData, councilId: value })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select your council" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {councils.map((council) => (
-                          <SelectItem key={council.id} value={council.id}>
-                            {council.name}, {council.city}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Send OTP to Create Account
-                </Button>
-                <p className="text-xs text-muted-foreground text-center">
-                  We'll send a verification code to your email to complete account creation
-                </p>
-              </form>
-            </TabsContent>
-          </Tabs>
+          <form onSubmit={handleSignIn} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="signin-email">Email</Label>
+              <Input
+                id="signin-email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                placeholder="Enter your email address"
+                required
+              />
+            </div>
+            {userType === 'admin' && formData.email === ADMIN_EMAIL && (
+              <p className="text-sm text-success">
+                🔑 Developer admin access - password login enabled
+              </p>
+            )}
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {userType === 'admin' && formData.email === ADMIN_EMAIL ? 'Sign In as Admin' : 'Send OTP'}
+            </Button>
+          </form>
         </CardContent>
       </Card>
     </div>

@@ -19,16 +19,16 @@ const Index = () => {
             Manage reports, track progress, and engage with citizens efficiently.
           </p>
           <div className="flex gap-4 justify-center">
-            <Link to="/dashboard">
+            <Link to="/auth/admin">
               <Button size="lg" className="font-semibold">
                 <Shield className="mr-2 h-4 w-4" />
-                Admin Dashboard
+                Admin Login
               </Button>
             </Link>
-            <Link to="/citizen-dashboard">
+            <Link to="/auth/citizen">
               <Button variant="outline" size="lg">
                 <UserCheck className="mr-2 h-4 w-4" />
-                Citizen Portal
+                Citizen Login
               </Button>
             </Link>
           </div>
