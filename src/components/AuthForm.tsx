@@ -30,68 +30,31 @@ const AuthForm = ({ onSuccess, userType }: AuthFormProps) => {
     setLoading(true);
 
     try {
-      // Check if admin login and admin email
-      if (userType === 'admin' && formData.email === ADMIN_EMAIL) {
-        try {
-          // For development only - create a temporary admin session
-          let { error } = await supabase.auth.signInWithPassword({
-            email: formData.email,
-            password: 'dev-admin-password',
-          });
-
-          if (error && error.message.includes('Invalid login credentials')) {
-            // Create the admin user if it doesn't exist
-            const { error: signUpError } = await supabase.auth.signUp({
-              email: formData.email,
-              password: 'dev-admin-password',
-              options: {
-                emailRedirectTo: undefined,
-                data: {
-                  full_name: 'Admin Developer',
-                  role: 'admin'
-                }
-              }
-            });
-
-            if (signUpError && !signUpError.message.includes('already registered')) {
-              throw signUpError;
-            }
-
-            // Try signing in again after signup
-            const { error: signInError } = await supabase.auth.signInWithPassword({
-              email: formData.email,
-              password: 'dev-admin-password',
-            });
-
-            if (signInError) throw signInError;
-          } else if (error) {
-            throw error;
-          }
-
-          toast({
-            title: "Admin access granted!",
-            description: "Welcome, administrator!",
-          });
-          
-          onSuccess();
-          return;
-        } catch (adminError) {
-          console.error('Admin login error:', adminError);
-          throw adminError;
-        }
-      }
-
-      // For all other users, send email OTP
+      // Use OTP for everyone - no more password login
       const { error } = await supabase.auth.signInWithOtp({
         email: formData.email,
         options: {
           emailRedirectTo: `${window.location.origin}/`,
+          data: {
+            user_type: userType,
+            ...(userType === 'admin' && formData.email === ADMIN_EMAIL && {
+              full_name: 'Admin Developer',
+              role: 'admin'
+            })
+          }
         },
       });
 
       if (error) {
-        if (error.message.includes('rate limit')) {
-          throw new Error('Too many requests. Please wait a moment before trying again.');
+        if (error.message.includes('rate limit') || error.message.includes('email_send_rate_limit')) {
+          // For rate limit, still show OTP form - user might have received email
+          setCurrentStep('otp');
+          toast({
+            title: "Please check your email",
+            description: "An OTP may have been sent. If you received it, enter it below.",
+            variant: "default",
+          });
+          return;
         }
         throw error;
       }
@@ -99,7 +62,11 @@ const AuthForm = ({ onSuccess, userType }: AuthFormProps) => {
       setCurrentStep('otp');
       toast({
         title: "OTP sent!",
-        description: "Please check your email for the verification code.",
+        description: `Please check your email for the verification code. ${
+          userType === 'admin' && formData.email === ADMIN_EMAIL 
+            ? 'Admin access will be granted after verification.' 
+            : ''
+        }`,
       });
 
     } catch (error: any) {
@@ -126,10 +93,18 @@ const AuthForm = ({ onSuccess, userType }: AuthFormProps) => {
 
       if (error) throw error;
 
-      toast({
-        title: "Email verified successfully!",
-        description: "Welcome to the municipal portal!",
-      });
+      // Special handling for admin developer email
+      if (userType === 'admin' && formData.email === ADMIN_EMAIL) {
+        toast({
+          title: "Admin access granted!",
+          description: "Welcome, administrator!",
+        });
+      } else {
+        toast({
+          title: "Email verified successfully!",
+          description: "Welcome to the municipal portal!",
+        });
+      }
       
       onSuccess();
     } catch (error: any) {
@@ -224,12 +199,12 @@ const AuthForm = ({ onSuccess, userType }: AuthFormProps) => {
             </div>
             {userType === 'admin' && formData.email === ADMIN_EMAIL && (
               <p className="text-sm text-success">
-                🔑 Developer admin access - password login enabled
+                🔑 Developer admin access - OTP login
               </p>
             )}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {userType === 'admin' && formData.email === ADMIN_EMAIL ? 'Sign In as Admin' : 'Send OTP'}
+              Send OTP
             </Button>
           </form>
         </CardContent>
