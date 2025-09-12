@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +18,7 @@ interface AuthFormProps {
 const AuthForm = ({ onSuccess, userType }: AuthFormProps) => {
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState<'email' | 'otp'>('email');
+  const [resendCooldown, setResendCooldown] = useState(0);
   const [formData, setFormData] = useState({
     email: "",
     otp: "",
@@ -25,12 +26,25 @@ const AuthForm = ({ onSuccess, userType }: AuthFormProps) => {
 
   const ADMIN_EMAIL = 'sajalkumar1765@gmail.com';
 
-  const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Cooldown timer effect
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (resendCooldown > 0) {
+      interval = setInterval(() => {
+        setResendCooldown((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [resendCooldown]);
+
+  const startCooldown = () => {
+    setResendCooldown(60);
+  };
+
+  const sendOTP = async (isResend = false) => {
     setLoading(true);
 
     try {
-      // Use OTP for everyone - no more password login
       const { error } = await supabase.auth.signInWithOtp({
         email: formData.email,
         options: {
@@ -47,21 +61,29 @@ const AuthForm = ({ onSuccess, userType }: AuthFormProps) => {
 
       if (error) {
         if (error.message.includes('rate limit') || error.message.includes('email_send_rate_limit')) {
-          // For rate limit, still show OTP form - user might have received email
-          setCurrentStep('otp');
+          if (!isResend) {
+            setCurrentStep('otp');
+          }
           toast({
-            title: "Please check your email",
-            description: "An OTP may have been sent. If you received it, enter it below.",
-            variant: "default",
+            title: isResend ? "Rate limited" : "Please check your email",
+            description: isResend 
+              ? "Please wait before requesting another code. Check your email for any recently sent codes."
+              : "An OTP may have been sent. If you received it, enter it below.",
+            variant: isResend ? "destructive" : "default",
           });
           return;
         }
         throw error;
       }
 
-      setCurrentStep('otp');
+      if (!isResend) {
+        setCurrentStep('otp');
+      }
+      
+      startCooldown();
+      
       toast({
-        title: "OTP sent!",
+        title: isResend ? "New OTP sent!" : "OTP sent!",
         description: `Please check your email for the verification code. ${
           userType === 'admin' && formData.email === ADMIN_EMAIL 
             ? 'Admin access will be granted after verification.' 
@@ -71,13 +93,22 @@ const AuthForm = ({ onSuccess, userType }: AuthFormProps) => {
 
     } catch (error: any) {
       toast({
-        title: "Error signing in",
+        title: `Error ${isResend ? 'resending' : 'sending'} OTP`,
         description: error.message,
         variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await sendOTP(false);
+  };
+
+  const handleResendOTP = async () => {
+    await sendOTP(true);
   };
 
   const handleEmailOtpVerification = async (e: React.FormEvent) => {
@@ -155,10 +186,24 @@ const AuthForm = ({ onSuccess, userType }: AuthFormProps) => {
                 onClick={() => {
                   setCurrentStep('email');
                   setFormData({ ...formData, otp: "" });
+                  setResendCooldown(0);
                 }}
                 className="w-full"
               >
                 Back to Email
+              </Button>
+              <Button 
+                type="button" 
+                variant="ghost" 
+                onClick={handleResendOTP}
+                disabled={loading || resendCooldown > 0}
+                className="w-full"
+              >
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {resendCooldown > 0 
+                  ? `Resend OTP in ${resendCooldown}s` 
+                  : 'Resend OTP'
+                }
               </Button>
             </form>
           </CardContent>
