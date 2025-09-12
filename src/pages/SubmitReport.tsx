@@ -56,9 +56,27 @@ const SubmitReport = () => {
         .from("profiles")
         .select("council_id")
         .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
 
       if (profileError) throw profileError;
+
+      // If no profile exists, create one for the user
+      if (!profileData) {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        const { error: createProfileError } = await supabase
+          .from("profiles")
+          .insert({
+            user_id: authUser.id,
+            email: authUser.email || "",
+            full_name: authUser.user_metadata?.full_name || "",
+            role: "citizen",
+            council_id: null
+          });
+
+        if (createProfileError) {
+          console.error("Error creating profile:", createProfileError);
+        }
+      }
 
       const { data, error } = await supabase
         .from("reports")
@@ -69,12 +87,12 @@ const SubmitReport = () => {
           location_address: formData.location,
           priority: formData.priority,
           citizen_id: user.id,
-          council_id: profileData.council_id || "00000000-0000-0000-0000-000000000000", // Default council if none
+          council_id: profileData?.council_id || "00000000-0000-0000-0000-000000000000", // Default council if none
           status: "pending",
           report_number: "", // Will be set by database trigger
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
 
