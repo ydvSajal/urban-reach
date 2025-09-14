@@ -160,12 +160,12 @@ const BulkOperationsToolbar: React.FC<BulkOperationsToolbarProps> = ({
     setTimeout(() => {
       if (result.success && result.processedCount > 0) {
         toast({
-          title: `${prev?.operation} completed`,
+          title: `Bulk operation completed`,
           description: `Successfully processed ${result.processedCount} report${result.processedCount === 1 ? '' : 's'}${result.failedCount > 0 ? ` (${result.failedCount} failed)` : ''}`,
         });
       } else if (!result.success || result.processedCount === 0) {
         toast({
-          title: `${prev?.operation} failed`,
+          title: `Bulk operation failed`,
           description: result.errors[0]?.error || 'Operation failed to process any reports',
           variant: 'destructive',
         });
