@@ -136,19 +136,28 @@ const ReportsListWithBulk: React.FC<ReportsListWithBulkProps> = ({
       }
 
       // Map the data to match our interface with proper type handling
-      const mappedData = (data || []).map(report => ({
-        ...report,
-        location: report.location_address || 'Unknown Location',
-        upvotes_count: 0, // These don't exist in current schema
-        comments_count: 0,
-        image_urls: report.images || [],
-        assigned_worker: report.assigned_worker && typeof report.assigned_worker === 'object' && 'full_name' in report.assigned_worker 
-          ? report.assigned_worker as { id: string; full_name: string; specialty: string; }
-          : null,
-        citizen: report.citizen && typeof report.citizen === 'object' && report.citizen !== null && 'full_name' in report.citizen && 'id' in report.citizen
-          ? report.citizen as { id: string; full_name: string; email: string; }
-          : null
-      }));
+      const mappedData = (data || []).map(report => {
+        // Safely handle citizen data
+        let citizenData = null;
+        if (report.citizen && typeof report.citizen === 'object' && report.citizen !== null) {
+          const c = report.citizen as any;
+          if (c.full_name && c.id && c.email) {
+            citizenData = { id: c.id, full_name: c.full_name, email: c.email };
+          }
+        }
+
+        return {
+          ...report,
+          location: report.location_address || 'Unknown Location',
+          upvotes_count: 0, // These don't exist in current schema
+          comments_count: 0,
+          image_urls: report.images || [],
+          assigned_worker: report.assigned_worker && typeof report.assigned_worker === 'object' && 'full_name' in report.assigned_worker 
+            ? report.assigned_worker as { id: string; full_name: string; specialty: string; }
+            : null,
+          citizen: citizenData
+        };
+      });
       
       setReports(mappedData as Report[]);
     } catch (error: any) {

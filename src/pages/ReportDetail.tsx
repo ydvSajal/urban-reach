@@ -307,12 +307,17 @@ const ReportDetail = () => {
     if (!report) return;
 
     try {
+      const updateData: any = {
+        assigned_worker_id: workerId
+      };
+      
+      if (workerId) {
+        updateData.status = 'acknowledged';
+      }
+
       const { error } = await supabase
         .from("reports")
-        .update({ 
-          assigned_worker_id: workerId,
-          status: workerId ? 'acknowledged' : report.status // Auto-acknowledge when assigning
-        })
+        .update(updateData)
         .eq("id", report.id);
 
       if (error) throw error;

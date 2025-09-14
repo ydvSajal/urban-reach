@@ -266,7 +266,7 @@ const Dashboard = () => {
             <CardDescription>Geographic distribution of reported issues</CardDescription>
           </CardHeader>
           <CardContent>
-            <ReportsMap showFilters={false} height="350px" />
+            <ReportsMap height="350px" />
           </CardContent>
         </Card>
 
@@ -321,7 +321,7 @@ const Dashboard = () => {
       {showExportDialog && (
         <ExportDialog 
           open={showExportDialog} 
-          onClose={() => setShowExportDialog(false)} 
+          onOpenChange={setShowExportDialog}
         />
       )}
     </div>

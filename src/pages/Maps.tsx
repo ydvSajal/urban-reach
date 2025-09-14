@@ -26,7 +26,7 @@ const Maps = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ReportsMap showFilters={true} height="600px" />
+          <ReportsMap height="600px" />
         </CardContent>
       </Card>
     </div>

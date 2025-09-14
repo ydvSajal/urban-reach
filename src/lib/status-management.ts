@@ -29,12 +29,21 @@ export const getStatusHistory = async (reportId: string): Promise<StatusHistoryE
 
     if (error) throw error;
 
-    return (data || []).map(entry => ({
-      ...entry,
-      profiles: entry.profiles && typeof entry.profiles === 'object' && 'full_name' in entry.profiles
-        ? entry.profiles as { full_name: string }
-        : { full_name: 'Unknown User' }
-    }));
+    return (data || []).map(entry => {
+      // Safely handle profiles data
+      let profileData = { full_name: 'Unknown User' };
+      if (entry.profiles && typeof entry.profiles === 'object' && entry.profiles !== null) {
+        const p = entry.profiles as any;
+        if (p.full_name) {
+          profileData = { full_name: p.full_name };
+        }
+      }
+
+      return {
+        ...entry,
+        profiles: profileData
+      };
+    });
   } catch (error) {
     console.error('Error fetching status history:', error);
     return [];
