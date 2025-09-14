@@ -9,6 +9,7 @@ import { toast } from "@/hooks/use-toast";
 import { Link } from "react-router-dom";
 import { Search, Filter, Eye, Calendar, MapPin } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useNewReportsSubscription, useRealtimeSubscription, useRealtimeConnectionStatus } from "@/hooks/useRealtimeSubscription";
 
 interface Report {
   id: string;
@@ -45,6 +46,28 @@ const Reports = () => {
   useEffect(() => {
     filterReports();
   }, [reports, searchTerm, statusFilter, categoryFilter, priorityFilter]);
+
+  // Real-time connection status
+  const { isOnline } = useRealtimeConnectionStatus();
+
+  // Subscribe to new reports
+  useNewReportsSubscription(
+    undefined, // All councils for admin view
+    (newReport) => {
+      loadReports(); // Refresh the reports list
+    },
+    true
+  );
+
+  // Subscribe to report updates
+  useRealtimeSubscription({
+    table: 'reports',
+    event: 'UPDATE',
+    onUpdate: (payload) => {
+      loadReports(); // Refresh when any report is updated
+    },
+    enabled: true,
+  });
 
   const loadReports = async () => {
     try {
@@ -189,8 +212,14 @@ const Reports = () => {
     <div className="p-6 space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Reports Management</h1>
-        <p className="text-muted-foreground">
+        <p className="text-muted-foreground flex items-center gap-2">
           Manage and track all reported issues from citizens
+          <span className="flex items-center gap-1">
+            <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'}`} />
+            <span className={isOnline ? 'text-green-600' : 'text-destructive'}>
+              {isOnline ? 'Live Updates' : 'Offline'}
+            </span>
+          </span>
         </p>
       </div>
 

@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { TrendingUp, FileText, Clock, CheckCircle, AlertTriangle, BarChart3, PieChart, Activity } from "lucide-react";
+import { TrendingUp, FileText, Clock, CheckCircle, AlertTriangle, BarChart3, PieChart, Activity, Download } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { PieChart as RechartsPieChart, Pie, Cell, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import ExportDialog from "@/components/ExportDialog";
 
 interface AnalyticsData {
   reportsByCategory: Array<{ name: string; value: number; percentage: number; fill: string }>;
@@ -31,6 +33,7 @@ const Analytics = () => {
   });
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState("30"); // days
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
 
   useEffect(() => {
     loadAnalyticsData();
@@ -222,17 +225,27 @@ const Analytics = () => {
             Insights and performance metrics for your municipal reports
           </p>
         </div>
-        <Select value={timeRange} onValueChange={setTimeRange}>
-          <SelectTrigger className="w-40">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="7">Last 7 days</SelectItem>
-            <SelectItem value="30">Last 30 days</SelectItem>
-            <SelectItem value="90">Last 90 days</SelectItem>
-            <SelectItem value="365">Last year</SelectItem>
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            onClick={() => setExportDialogOpen(true)}
+            className="flex items-center gap-2"
+          >
+            <Download className="h-4 w-4" />
+            Export Data
+          </Button>
+          <Select value={timeRange} onValueChange={setTimeRange}>
+            <SelectTrigger className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="7">Last 7 days</SelectItem>
+              <SelectItem value="30">Last 30 days</SelectItem>
+              <SelectItem value="90">Last 90 days</SelectItem>
+              <SelectItem value="365">Last year</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -485,6 +498,13 @@ const Analytics = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Export Dialog */}
+      <ExportDialog
+        open={exportDialogOpen}
+        onOpenChange={setExportDialogOpen}
+        currentTimeRange={timeRange}
+      />
     </div>
   );
 };

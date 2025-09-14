@@ -3,9 +3,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import ReportsMap from "@/components/ReportsMap";
-import { FileText, CheckCircle, Clock, AlertCircle, TrendingUp } from "lucide-react";
+import { FileText, CheckCircle, Clock, AlertCircle, TrendingUp, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import { useNewReportsSubscription, useRealtimeConnectionStatus, useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
+import ExportDialog from "@/components/ExportDialog";
 
 interface DashboardStats {
   totalReports: number;
@@ -35,6 +37,49 @@ const Dashboard = () => {
   });
   const [recentReports, setRecentReports] = useState<RecentReport[]>([]);
   const [loading, setLoading] = useState(true);
+  const [councilId, setCouncilId] = useState<string | null>(null);
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  
+  // Real-time connection status
+  const { isOnline } = useRealtimeConnectionStatus();
+
+  // Get council ID for real-time subscriptions
+  useEffect(() => {
+    const getCouncilId = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("council_id")
+          .eq("user_id", user.id)
+          .single();
+        setCouncilId(profile?.council_id || null);
+      }
+    };
+    getCouncilId();
+  }, []);
+
+  // Subscribe to new reports
+  useNewReportsSubscription(
+    councilId || undefined,
+    (newReport) => {
+      // Refresh dashboard data when new report comes in
+      loadDashboardData();
+    },
+    !!councilId
+  );
+
+  // Subscribe to report status changes for real-time stats updates
+  useRealtimeSubscription({
+    table: 'reports',
+    event: 'UPDATE',
+    filter: councilId ? `council_id=eq.${councilId}` : undefined,
+    onUpdate: (payload) => {
+      // Refresh dashboard data when any report is updated
+      loadDashboardData();
+    },
+    enabled: !!councilId,
+  });
 
   useEffect(() => {
     loadDashboardData();
@@ -90,11 +135,11 @@ const Dashboard = () => {
         
         setRecentReports(reportsWithProfiles);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error loading dashboard data:", error);
       toast({
         title: "Error loading dashboard",
-        description: error.message,
+        description: (error as Error)?.message || "Failed to load dashboard data",
         variant: "destructive",
       });
     } finally {
@@ -173,14 +218,28 @@ const Dashboard = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground">Overview of your municipal reports and activities</p>
+          <p className="text-muted-foreground flex items-center gap-2">
+            Overview of your municipal reports and activities
+            <span className="flex items-center gap-1">
+              <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'}`} />
+              <span className={isOnline ? 'text-green-600' : 'text-destructive'}>
+                {isOnline ? 'Live Updates' : 'Offline'}
+              </span>
+            </span>
+          </p>
         </div>
-        <Button asChild>
-          <Link to="/reports">
-            <TrendingUp className="mr-2 h-4 w-4" />
-            View All Reports
-          </Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowExportDialog(true)}>
+            <Download className="mr-2 h-4 w-4" />
+            Export Data
+          </Button>
+          <Button asChild>
+            <Link to="/reports">
+              <TrendingUp className="mr-2 h-4 w-4" />
+              View All Reports
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -207,7 +266,7 @@ const Dashboard = () => {
             <CardDescription>Geographic distribution of reported issues</CardDescription>
           </CardHeader>
           <CardContent>
-            <ReportsMap />
+            <ReportsMap showFilters={false} height="350px" />
           </CardContent>
         </Card>
 
@@ -259,6 +318,12 @@ const Dashboard = () => {
           </CardContent>
         </Card>
       </div>
+      {showExportDialog && (
+        <ExportDialog 
+          open={showExportDialog} 
+          onClose={() => setShowExportDialog(false)} 
+        />
+      )}
     </div>
   );
 };
