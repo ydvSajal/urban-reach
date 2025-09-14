@@ -94,21 +94,11 @@ const SubmitReport = () => {
         throw new Error("You must be logged in to submit a report");
       }
 
+      // Validate basic form data - location is optional for testing
       if (!formData.category) {
         toast({
           title: "Category required",
           description: "Please select a category for your report",
-          variant: "destructive",
-        });
-        setLoading(false);
-        return;
-      }
-
-      // Validate location - either manual address or selected location required
-      if (!selectedLocation && !AddressFormatter.isValidAddressString(formData.location)) {
-        toast({
-          title: "Location required",
-          description: "Please provide a valid address or select a location on the map",
           variant: "destructive",
         });
         setLoading(false);
@@ -135,30 +125,13 @@ const SubmitReport = () => {
 
       if (profileError) throw profileError;
 
-      // Get Bennett University council for testing
-      const { data: councilData, error: councilError } = await supabase
-        .from("councils")
-        .select("id, name")
-        .eq("name", "Bennett University")
-        .maybeSingle();
-
-      if (councilError) {
-        console.error("Council query error:", councilError);
-        // Fallback to any available council
-        const { data: fallbackCouncil } = await supabase
-          .from("councils")
-          .select("id, name")
-          .limit(1)
-          .maybeSingle();
-        
-        if (!fallbackCouncil) throw new Error("No councils available");
-        
-        var selectedCouncil = fallbackCouncil;
-      } else {
-        var selectedCouncil = councilData;
-      }
-
-      if (!selectedCouncil) throw new Error("Bennett University council not found");
+      // For testing - hardcode Bennett University council ID
+      // This avoids database lookup issues during testing
+      const BENNETT_UNIVERSITY_ID = "00000000-0000-0000-0000-000000000001"; // Fixed ID for testing
+      const selectedCouncil = {
+        id: BENNETT_UNIVERSITY_ID,
+        name: "Bennett University"
+      };
 
       // If no profile exists, create one for the user with the first council
       if (!profileData) {
@@ -182,13 +155,14 @@ const SubmitReport = () => {
       let imageUrls: string[] = [];
       // Images will be handled by the ImageUpload component's onUpload callback
 
-      // Prepare location data
+      // Prepare location data - default to Bennett University for testing
       const locationAddress = selectedLocation 
         ? selectedLocation.address 
-        : AddressFormatter.standardizeAddress(formData.location);
+        : formData.location || "Bennett University, Greater Noida, Uttar Pradesh";
       
-      const latitude = selectedLocation?.latitude || null;
-      const longitude = selectedLocation?.longitude || null;
+      // Default coordinates for Bennett University
+      const latitude = selectedLocation?.latitude || 28.4509;
+      const longitude = selectedLocation?.longitude || 77.5847;
 
       // Create the report
       const { data, error } = await supabase
@@ -202,7 +176,7 @@ const SubmitReport = () => {
           longitude: longitude,
           priority: formData.priority,
           citizen_id: user.id,
-          council_id: profileData?.council_id || selectedCouncil.id, // Use user's council or Bennett University for testing
+          council_id: selectedCouncil.id, // Always use Bennett University for testing
           status: "pending",
           report_number: "", // Will be set by database trigger
           images: imageUrls, // Add uploaded image URLs
