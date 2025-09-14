@@ -135,7 +135,18 @@ const SubmitReport = () => {
 
       if (profileError) throw profileError;
 
-      // If no profile exists, create one for the user
+      // Get the first available council (Bennett University will be first)
+      const { data: councilData, error: councilError } = await supabase
+        .from("councils")
+        .select("id")
+        .order("name")
+        .limit(1)
+        .maybeSingle();
+
+      if (councilError) throw councilError;
+      if (!councilData) throw new Error("No councils available");
+
+      // If no profile exists, create one for the user with the first council
       if (!profileData) {
         const { data: { user: authUser } } = await supabase.auth.getUser();
         const { error: createProfileError } = await supabase
@@ -145,7 +156,7 @@ const SubmitReport = () => {
             email: authUser.email || "",
             full_name: authUser.user_metadata?.full_name || "",
             role: "citizen",
-            council_id: null
+            council_id: councilData.id
           });
 
         if (createProfileError) {
@@ -177,7 +188,7 @@ const SubmitReport = () => {
           longitude: longitude,
           priority: formData.priority,
           citizen_id: user.id,
-          council_id: profileData.council_id || "00000000-0000-0000-0000-000000000000", // Default council if none
+          council_id: profileData?.council_id || councilData.id, // Use user's council or default to first available
           status: "pending",
           report_number: "", // Will be set by database trigger
           images: imageUrls, // Add uploaded image URLs

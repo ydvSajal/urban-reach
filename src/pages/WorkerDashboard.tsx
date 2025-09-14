@@ -552,30 +552,25 @@ const WorkerDashboard = () => {
                 </div>
               </div>
               
-              <div>
-                <h5 className="font-medium text-sm mb-2">Current Workload</h5>
-                <div className="flex items-center gap-2">
-                  <span className="text-lg font-semibold">
-                    {workerProfile.current_workload || 0}/{workerProfile.max_workload || 10}
-                  </span>
-                  <div className="flex-1 bg-muted rounded-full h-3">
-                    <div
-                      className={`rounded-full h-3 transition-all ${((workerProfile.current_workload || 0) / (workerProfile.max_workload || 10)) > 0.8
-                          ? 'bg-red-500'
-                          : ((workerProfile.current_workload || 0) / (workerProfile.max_workload || 10)) > 0.6
-                            ? 'bg-yellow-500'
-                            : 'bg-green-500'
-                        }`}
-                      style={{
-                        width: `${Math.min(((workerProfile.current_workload || 0) / (workerProfile.max_workload || 10)) * 100, 100)}%`
-                      }}
-                    />
+                <div>
+                  <h5 className="font-medium text-sm mb-2">Current Workload</h5>
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg font-semibold">
+                      0/10
+                    </span>
+                    <div className="flex-1 bg-muted rounded-full h-3">
+                      <div
+                        className="bg-green-500 rounded-full h-3 transition-all"
+                        style={{
+                          width: '0%'
+                        }}
+                      />
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      0%
+                    </span>
                   </div>
-                  <span className="text-xs text-muted-foreground">
-                    {Math.round(((workerProfile.current_workload || 0) / (workerProfile.max_workload || 10)) * 100)}%
-                  </span>
                 </div>
-              </div>
             </div>
 
             {/* Performance Metrics */}
@@ -585,7 +580,7 @@ const WorkerDashboard = () => {
                 <div>
                   <h5 className="font-medium text-sm">Total Completed</h5>
                   <p className="text-2xl font-bold text-green-600">
-                    {workerProfile.total_completed || 0}
+                    0
                   </p>
                 </div>
                 <div>
@@ -593,17 +588,14 @@ const WorkerDashboard = () => {
                   <div className="flex items-center gap-1">
                     <TrendingUp className="h-4 w-4 text-green-500" />
                     <span className="text-lg font-semibold">
-                      {workerProfile.performance_rating ? `${workerProfile.performance_rating.toFixed(1)}/5.0` : 'N/A'}
+                      N/A
                     </span>
                   </div>
                 </div>
                 <div>
                   <h5 className="font-medium text-sm">Avg. Completion Time</h5>
                   <p className="text-lg font-semibold">
-                    {workerProfile.avg_completion_time 
-                      ? `${Math.round(workerProfile.avg_completion_time / 24)} days`
-                      : 'N/A'
-                    }
+                    N/A
                   </p>
                 </div>
                 <div>

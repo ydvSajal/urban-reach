@@ -31,6 +31,8 @@ interface Worker {
   current_workload: number;
   max_workload: number;
   created_at: string;
+  updated_at: string;
+  council_id: string;
 }
 
 interface WorkerAssignmentProps {
@@ -82,7 +84,16 @@ const WorkerAssignment: React.FC<WorkerAssignmentProps> = ({
         throw error;
       }
 
-      setWorkers(data || []);
+      // Map data to add missing fields with defaults
+      const mappedData = (data || []).map(worker => ({
+        ...worker,
+        current_workload: 0, // Default value since column doesn't exist
+        max_workload: 10,   // Default value since column doesn't exist
+        phone: worker.phone ?? null,
+        specialty: worker.specialty ?? 'General'
+      }));
+
+      setWorkers(mappedData);
     } catch (error: unknown) {
       console.error('Error loading workers:', error);
       toast({
