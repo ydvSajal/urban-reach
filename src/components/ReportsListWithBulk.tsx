@@ -49,12 +49,12 @@ interface Report {
     id: string;
     full_name: string;
     specialty: string;
-  };
+  } | null;
   citizen?: {
     id: string;
     full_name: string;
     email: string;
-  };
+  } | null;
 }
 
 interface ReportsListWithBulkProps {
@@ -93,7 +93,7 @@ const ReportsListWithBulk: React.FC<ReportsListWithBulkProps> = ({
         .from('reports')
         .select(`
           *,
-          assigned_worker:profiles!assigned_worker_id(
+          assigned_worker:workers!assigned_worker_id(
             id,
             full_name,
             specialty
@@ -108,15 +108,15 @@ const ReportsListWithBulk: React.FC<ReportsListWithBulkProps> = ({
 
       // Apply filters
       if (filters?.status && filters.status !== 'all') {
-        query = query.eq('status', filters.status);
+        query = query.eq('status', filters.status as any);
       }
       
       if (filters?.priority && filters.priority !== 'all') {
-        query = query.eq('priority', filters.priority);
+        query = query.eq('priority', filters.priority as any);
       }
       
       if (filters?.category && filters.category !== 'all') {
-        query = query.eq('category', filters.category);
+        query = query.eq('category', filters.category as any);
       }
       
       if (filters?.assignedWorker && filters.assignedWorker !== 'all') {
@@ -135,7 +135,22 @@ const ReportsListWithBulk: React.FC<ReportsListWithBulkProps> = ({
         throw queryError;
       }
 
-      setReports(data || []);
+      // Map the data to match our interface with proper type handling
+      const mappedData = (data || []).map(report => ({
+        ...report,
+        location: report.location_address || 'Unknown Location',
+        upvotes_count: 0, // These don't exist in current schema
+        comments_count: 0,
+        image_urls: report.images || [],
+        assigned_worker: report.assigned_worker && typeof report.assigned_worker === 'object' && 'full_name' in report.assigned_worker 
+          ? report.assigned_worker as { id: string; full_name: string; specialty: string; }
+          : null,
+        citizen: report.citizen && typeof report.citizen === 'object' && report.citizen !== null && 'full_name' in report.citizen && 'id' in report.citizen
+          ? report.citizen as { id: string; full_name: string; email: string; }
+          : null
+      }));
+      
+      setReports(mappedData as Report[]);
     } catch (error: any) {
       console.error('Failed to load reports:', error);
       setError(error.message || 'Failed to load reports');

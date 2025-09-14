@@ -67,13 +67,13 @@ export class ExportService {
 
     // Apply filters
     if (options.filters?.category) {
-      query = query.eq("category", options.filters.category);
+      query = query.eq("category", options.filters.category as any);
     }
     if (options.filters?.status) {
-      query = query.eq("status", options.filters.status);
+      query = query.eq("status", options.filters.status as any);
     }
     if (options.filters?.priority) {
-      query = query.eq("priority", options.filters.priority);
+      query = query.eq("priority", options.filters.priority as any);
     }
     if (options.filters?.councilId) {
       query = query.eq("council_id", options.filters.councilId);

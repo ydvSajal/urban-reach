@@ -80,7 +80,7 @@ export const uploadFile = async (
 ): Promise<{ url: string; thumbnailUrl: string }> => {
   try {
     // Validate file
-    if (!STORAGE_CONFIG.ALLOWED_TYPES.includes(file.type)) {
+    if (!STORAGE_CONFIG.ALLOWED_TYPES.includes(file.type as any)) {
       throw new Error(`File type ${file.type} is not allowed`);
     }
 
@@ -320,7 +320,7 @@ export const storageUtils = {
   },
 
   isImageFile: (file: File): boolean => {
-    return STORAGE_CONFIG.ALLOWED_TYPES.includes(file.type);
+    return STORAGE_CONFIG.ALLOWED_TYPES.includes(file.type as any);
   },
 
   validateFileSize: (file: File): boolean => {

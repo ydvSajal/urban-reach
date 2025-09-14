@@ -323,8 +323,8 @@ const ReportDetail = () => {
         .from("report_status_history")
         .insert([{
           report_id: report.id,
-          old_status: report.status as any,
-          new_status: workerId ? 'acknowledged' as any : report.status as any,
+          old_status: report.status as 'pending' | 'acknowledged' | 'in_progress' | 'resolved' | 'closed',
+          new_status: workerId ? 'acknowledged' as 'pending' | 'acknowledged' | 'in_progress' | 'resolved' | 'closed' : report.status as 'pending' | 'acknowledged' | 'in_progress' | 'resolved' | 'closed',
           notes: workerId 
             ? `Assigned to ${workerName}` 
             : `Unassigned from ${report.workers?.full_name || 'worker'}`,

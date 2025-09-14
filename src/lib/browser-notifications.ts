@@ -10,7 +10,11 @@ export interface BrowserNotificationOptions {
   data?: any;
   requireInteraction?: boolean;
   silent?: boolean;
-  actions?: NotificationAction[];
+  actions?: Array<{
+    action: string;
+    title: string;
+    icon?: string;
+  }>;
 }
 
 export interface NotificationPermissionState {
@@ -105,7 +109,7 @@ class BrowserNotificationService {
         data: options.data,
         requireInteraction: options.requireInteraction || false,
         silent: options.silent || false,
-        actions: options.actions || [],
+        // actions: options.actions || [], // Remove until proper service worker support
       });
 
       // Auto-close notification after 5 seconds if not requiring interaction

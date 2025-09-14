@@ -159,10 +159,9 @@ const AuthForm = ({ onSuccess, userType }: AuthFormProps) => {
           description: `Check your ${authMethod} for the 6-digit code`,
         });
       } else {
-        const message = result.error instanceof Error ? result.error.message : String(result.error);
         toast({
           title: "Failed to send OTP",
-          description: message,
+          description: "Please try again",
           variant: "destructive",
         });
       }

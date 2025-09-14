@@ -1,7 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
 
 export type ExportFormat = 'csv' | 'excel' | 'pdf' | 'json';
 export type ReportType = 'all_reports' | 'status_summary' | 'worker_performance' | 'citizen_engagement' | 'location_analysis' | 'time_series' | 'custom';
@@ -100,15 +99,12 @@ export class DataExportService {
     }
   }
 
-  /**
-   * Get all reports with filters
-   */
   private static async getAllReports(filters: ExportFilter) {
     let query = supabase
       .from('reports')
       .select(`
         *,
-        assigned_worker:profiles!assigned_worker_id(full_name, email),
+        assigned_worker:workers!assigned_worker_id(full_name, email),
         citizen:profiles!citizen_id(full_name, email)
       `);
 
@@ -125,19 +121,17 @@ export class DataExportService {
       'Category': report.category,
       'Status': report.status,
       'Priority': report.priority,
-      'Location': report.location,
+      'Location': report.location_address || 'Unknown',
       'Latitude': report.latitude,
       'Longitude': report.longitude,
       'Created Date': new Date(report.created_at).toLocaleDateString(),
       'Updated Date': new Date(report.updated_at).toLocaleDateString(),
       'Resolved Date': report.resolved_at ? new Date(report.resolved_at).toLocaleDateString() : '',
-      'Citizen Name': report.citizen?.full_name || 'Unknown',
-      'Citizen Email': report.citizen?.email || '',
-      'Assigned Worker': report.assigned_worker?.full_name || 'Unassigned',
-      'Worker Email': report.assigned_worker?.email || '',
-      'Upvotes': report.upvotes_count || 0,
-      'Comments': report.comments_count || 0,
-      'Images': report.image_urls?.length || 0
+      'Citizen Name': (report.citizen as any)?.full_name || 'Unknown',
+      'Citizen Email': (report.citizen as any)?.email || '',
+      'Assigned Worker': (report.assigned_worker as any)?.full_name || 'Unassigned',
+      'Worker Email': (report.assigned_worker as any)?.email || '',
+      'Images': report.images?.length || 0
     })) || [];
   }
 
@@ -187,9 +181,6 @@ export class DataExportService {
     return result;
   }
 
-  /**
-   * Get worker performance report
-   */
   private static async getWorkerPerformance(filters: ExportFilter) {
     let query = supabase
       .from('reports')
@@ -199,7 +190,7 @@ export class DataExportService {
         priority,
         created_at,
         resolved_at,
-        assigned_worker:profiles!assigned_worker_id(full_name, email, specialty)
+        assigned_worker:workers!assigned_worker_id(full_name, email)
       `)
       .not('assigned_worker_id', 'is', null);
 
@@ -210,13 +201,13 @@ export class DataExportService {
 
     const performance = data?.reduce((acc: any, report) => {
       const workerId = report.assigned_worker_id;
-      const worker = report.assigned_worker;
+      const worker = report.assigned_worker as any;
       
       if (!acc[workerId]) {
         acc[workerId] = {
           name: worker?.full_name || 'Unknown',
           email: worker?.email || '',
-          specialty: worker?.specialty || '',
+          specialty: 'General',
           total: 0,
           resolved: 0,
           pending: 0,
@@ -279,8 +270,6 @@ export class DataExportService {
       .from('reports')
       .select(`
         citizen_id,
-        upvotes_count,
-        comments_count,
         created_at,
         status,
         citizen:profiles!citizen_id(full_name, email)
@@ -293,15 +282,13 @@ export class DataExportService {
 
     const engagement = data?.reduce((acc: any, report) => {
       const citizenId = report.citizen_id;
-      const citizen = report.citizen;
+      const citizen = report.citizen as any;
       
       if (!acc[citizenId]) {
         acc[citizenId] = {
           name: citizen?.full_name || 'Unknown',
           email: citizen?.email || '',
           reports: 0,
-          total_upvotes: 0,
-          total_comments: 0,
           resolved_reports: 0,
           first_report: report.created_at,
           last_report: report.created_at
@@ -309,8 +296,6 @@ export class DataExportService {
       }
       
       acc[citizenId].reports++;
-      acc[citizenId].total_upvotes += report.upvotes_count || 0;
-      acc[citizenId].total_comments += report.comments_count || 0;
       
       if (report.status === 'resolved' || report.status === 'closed') {
         acc[citizenId].resolved_reports++;
@@ -332,9 +317,6 @@ export class DataExportService {
       'Email': citizen.email,
       'Total Reports': citizen.reports,
       'Resolved Reports': citizen.resolved_reports,
-      'Total Upvotes Received': citizen.total_upvotes,
-      'Total Comments Received': citizen.total_comments,
-      'Avg Upvotes per Report': citizen.reports > 0 ? (citizen.total_upvotes / citizen.reports).toFixed(1) : '0',
       'First Report Date': new Date(citizen.first_report).toLocaleDateString(),
       'Last Report Date': new Date(citizen.last_report).toLocaleDateString(),
       'Success Rate': citizen.reports > 0 ? ((citizen.resolved_reports / citizen.reports) * 100).toFixed(1) + '%' : '0%'
@@ -349,7 +331,7 @@ export class DataExportService {
   private static async getLocationAnalysis(filters: ExportFilter) {
     let query = supabase
       .from('reports')
-      .select('location, category, status, priority, latitude, longitude, created_at');
+      .select('location_address, category, status, priority, latitude, longitude, created_at');
 
     query = this.applyFilters(query, filters);
     
@@ -357,7 +339,7 @@ export class DataExportService {
     if (error) throw error;
 
     const locationStats = data?.reduce((acc: any, report) => {
-      const location = report.location || 'Unknown Location';
+      const location = report.location_address || 'Unknown Location';
       
       if (!acc[location]) {
         acc[location] = {
@@ -461,7 +443,6 @@ export class DataExportService {
    * Get custom report data
    */
   private static async getCustomReport(config: CustomReportConfig) {
-    // This is a simplified implementation - in a real app, you'd build dynamic queries
     const baseData = await this.getAllReports(config.filters);
     
     // Apply field selection and transforms
@@ -472,26 +453,6 @@ export class DataExportService {
       });
       return newRow;
     });
-
-    // Apply grouping and sorting if specified
-    if (config.groupBy && config.groupBy.length > 0) {
-      // Implement grouping logic here
-      // This is a placeholder for more complex grouping functionality
-    }
-
-    if (config.sortBy && config.sortBy.length > 0) {
-      selectedData.sort((a, b) => {
-        for (const sort of config.sortBy!) {
-          const aVal = a[sort.field];
-          const bVal = b[sort.field];
-          const comparison = aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
-          if (comparison !== 0) {
-            return sort.direction === 'desc' ? -comparison : comparison;
-          }
-        }
-        return 0;
-      });
-    }
 
     return selectedData;
   }
@@ -523,7 +484,7 @@ export class DataExportService {
     }
 
     if (filters.location) {
-      query = query.ilike('location', `%${filters.location}%`);
+      query = query.ilike('location_address', `%${filters.location}%`);
     }
 
     if (filters.citizenId) {
@@ -534,356 +495,146 @@ export class DataExportService {
   }
 
   /**
-   * Format data and create downloadable file
-   * Uses the ExportService from export.ts for consistent export functionality
+   * Format data and create download
    */
   private static async formatAndDownload(
-    data: any[],
-    format: ExportFormat,
+    data: any[], 
+    format: ExportFormat, 
     filename: string,
-    title: string
+    title?: string
   ): Promise<ExportResult> {
     try {
-      // Handle each format with appropriate method
+      let blob: Blob;
+      let mimeType: string;
+      let extension: string;
+
       switch (format) {
-        case 'json':
-          return this.exportToJSON(data, filename);
         case 'csv':
-          return this.exportToCSV(data, filename);
+          const csvContent = this.convertToCSV(data);
+          blob = new Blob([csvContent], { type: 'text/csv' });
+          mimeType = 'text/csv';
+          extension = 'csv';
+          break;
+
         case 'excel':
-          return this.exportToExcel(data, filename, title);
+          const workbook = XLSX.utils.book_new();
+          const worksheet = XLSX.utils.json_to_sheet(data);
+          XLSX.utils.book_append_sheet(workbook, worksheet, 'Reports');
+          const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+          blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+          mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+          extension = 'xlsx';
+          break;
+
         case 'pdf':
-          return this.exportToPDF(data, filename, title);
+          const pdfBlob = await this.convertToPDF(data, title || 'Report');
+          blob = pdfBlob;
+          mimeType = 'application/pdf';
+          extension = 'pdf';
+          break;
+
+        case 'json':
+          const jsonContent = JSON.stringify(data, null, 2);
+          blob = new Blob([jsonContent], { type: 'application/json' });
+          mimeType = 'application/json';
+          extension = 'json';
+          break;
+
         default:
-          throw new Error(`Unsupported export format: ${format}`);
+          throw new Error('Unsupported format');
       }
+
+      // Create download URL
+      const url = URL.createObjectURL(blob);
+      const fullFilename = `${filename}.${extension}`;
+
+      // Auto-download
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fullFilename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      // Clean up URL object
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+      return {
+        success: true,
+        data,
+        url,
+        filename: fullFilename
+      };
     } catch (error: any) {
       return {
         success: false,
-        filename,
-        error: error.message || 'Export formatting failed'
+        filename: '',
+        error: error.message || 'Format conversion failed'
       };
     }
   }
 
   /**
-   * Export to CSV format
+   * Convert data to CSV format
    */
-  private static exportToCSV(data: any[], filename: string): ExportResult {
-    if (!data || data.length === 0) {
-      return {
-        success: false,
-        filename,
-        error: 'No data to export'
-      };
-    }
+  private static convertToCSV(data: any[]): string {
+    if (!data || data.length === 0) return '';
 
     const headers = Object.keys(data[0]);
-    const csvContent = [
-      headers.join(','),
-      ...data.map(row => 
-        headers.map(header => {
-          const value = row[header];
-          return typeof value === 'string' && value.includes(',') 
-            ? `"${value.replace(/"/g, '""')}"` 
-            : value;
-        }).join(',')
-      )
-    ].join('\n');
+    const csvRows = [];
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
+    // Add headers
+    csvRows.push(headers.map(header => `"${header}"`).join(','));
+
+    // Add data rows
+    for (const row of data) {
+      const values = headers.map(header => {
+        const value = row[header];
+        return `"${String(value || '').replace(/"/g, '""')}"`;
+      });
+      csvRows.push(values.join(','));
+    }
+
+    return csvRows.join('\n');
+  }
+
+  /**
+   * Convert data to PDF format
+   */
+  private static async convertToPDF(data: any[], title: string): Promise<Blob> {
+    const pdf = new jsPDF();
     
-    return {
-      success: true,
-      data: csvContent,
-      url,
-      filename: `${filename}.csv`
-    };
-  }
-
-  /**
-   * Export to Excel format
-   */
-  private static exportToExcel(data: any[], filename: string, title: string): ExportResult {
-    try {
-      const workbook = XLSX.utils.book_new();
-      const worksheet = XLSX.utils.json_to_sheet(data);
+    // Add title
+    pdf.setFontSize(16);
+    pdf.text(title, 14, 22);
+    
+    // Add generation date
+    pdf.setFontSize(10);
+    pdf.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
+    
+    if (data && data.length > 0) {
+      const headers = Object.keys(data[0]);
+      const rows = data.map(row => headers.map(header => String(row[header] || '')));
       
-      // Add title and metadata
-      XLSX.utils.sheet_add_aoa(worksheet, [
-        [title],
-        [`Generated on: ${new Date().toLocaleString()}`],
-        [`Total Records: ${data.length}`],
-        []
-      ], { origin: 'A1' });
-
-      // Adjust column widths
-      const colWidths = Object.keys(data[0] || {}).map(() => ({ wch: 15 }));
-      worksheet['!cols'] = colWidths;
-
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Report');
-      
-      const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-      const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      const url = URL.createObjectURL(blob);
-
-      return {
-        success: true,
-        data: excelBuffer,
-        url,
-        filename: `${filename}.xlsx`
-      };
-    } catch (error: any) {
-      return {
-        success: false,
-        filename,
-        error: error.message || 'Excel export failed'
-      };
+      // Add table (requires jspdf-autotable plugin)
+      (pdf as any).autoTable({
+        head: [headers],
+        body: rows,
+        startY: 35,
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [66, 139, 202] }
+      });
+    } else {
+      pdf.text('No data available', 14, 40);
     }
+    
+    return new Blob([pdf.output('blob')], { type: 'application/pdf' });
   }
 
   /**
-   * Export to PDF format
-   */
-  private static exportToPDF(data: any[], filename: string, title: string): ExportResult {
-    try {
-      const doc = new jsPDF();
-      
-      // Add title and metadata
-      doc.setFontSize(16);
-      doc.text(title, 14, 20);
-      
-      doc.setFontSize(10);
-      doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
-      doc.text(`Total Records: ${data.length}`, 14, 36);
-
-      if (data.length === 0) {
-        doc.text('No data available', 14, 50);
-      } else {
-        // Create table
-        const headers = Object.keys(data[0]);
-        const rows = data.map(row => headers.map(header => String(row[header] || '')));
-
-        (doc as any).autoTable({
-          startY: 45,
-          head: [headers],
-          body: rows,
-          styles: { fontSize: 8 },
-          headStyles: { fillColor: [41, 128, 185] }
-        });
-      }
-
-      const pdfOutput = doc.output('blob');
-      const url = URL.createObjectURL(pdfOutput);
-
-      return {
-        success: true,
-        data: pdfOutput,
-        url,
-        filename: `${filename}.pdf`
-      };
-    } catch (error: any) {
-      return {
-        success: false,
-        filename,
-        error: error.message || 'PDF export failed'
-      };
-    }
-  }
-
-  /**
-   * Export to JSON format
-   */
-  private static exportToJSON(data: any[], filename: string): ExportResult {
-    try {
-      const jsonContent = JSON.stringify({
-        metadata: {
-          title: 'Urban Reach Export',
-          generated_at: new Date().toISOString(),
-          total_records: data.length
-        },
-        data
-      }, null, 2);
-
-      const blob = new Blob([jsonContent], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-
-      return {
-        success: true,
-        data: jsonContent,
-        url,
-        filename: `${filename}.json`
-      };
-    } catch (error: any) {
-      return {
-        success: false,
-        filename,
-        error: error.message || 'JSON export failed'
-      };
-    }
-  }
-
-  /**
-   * Get formatted date string for filenames
+   * Get current date string for filename
    */
   private static getDateString(): string {
-    return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-  }
-
-  /**
-   * Schedule automated report generation
-   */
-  static async scheduleReport(
-    reportConfig: {
-      type: ReportType;
-      format: ExportFormat;
-      filters: ExportFilter;
-      customConfig?: CustomReportConfig;
-      schedule: 'daily' | 'weekly' | 'monthly';
-      recipients: string[];
-      title: string;
-    }
-  ): Promise<{ success: boolean; scheduleId?: string; error?: string }> {
-    try {
-      // Store scheduled report configuration in database
-      const { data, error } = await supabase
-        .from('scheduled_reports')
-        .insert({
-          type: reportConfig.type,
-          format: reportConfig.format,
-          filters: reportConfig.filters,
-          custom_config: reportConfig.customConfig,
-          schedule: reportConfig.schedule,
-          recipients: reportConfig.recipients,
-          title: reportConfig.title,
-          is_active: true,
-          created_at: new Date().toISOString(),
-          next_run: this.calculateNextRun(reportConfig.schedule)
-        })
-        .select('id')
-        .single();
-
-      if (error) throw error;
-
-      return {
-        success: true,
-        scheduleId: data.id
-      };
-    } catch (error: any) {
-      return {
-        success: false,
-        error: error.message || 'Failed to schedule report'
-      };
-    }
-  }
-
-  /**
-   * Calculate next run time for scheduled reports
-   */
-  private static calculateNextRun(schedule: 'daily' | 'weekly' | 'monthly'): string {
-    const now = new Date();
-    
-    switch (schedule) {
-      case 'daily':
-        now.setDate(now.getDate() + 1);
-        break;
-      case 'weekly':
-        now.setDate(now.getDate() + 7);
-        break;
-      case 'monthly':
-        now.setMonth(now.getMonth() + 1);
-        break;
-    }
-    
-    // Set to 9 AM
-    now.setHours(9, 0, 0, 0);
-    
-    return now.toISOString();
-  }
-
-  /**
-   * Download file with proper browser handling
-   */
-  static downloadFile(result: ExportResult) {
-    if (!result.success || !result.url) {
-      throw new Error(result.error || 'Download failed');
-    }
-
-    const link = document.createElement('a');
-    link.href = result.url;
-    link.download = result.filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    // Clean up blob URL after download
-    setTimeout(() => URL.revokeObjectURL(result.url!), 100);
-  }
-
-  /**
-   * Generate analytics data for ExportService integration
-   */
-  private static generateAnalytics(data: any[]) {
-    const total = data.length;
-    const resolved = data.filter(r => ['resolved', 'closed'].includes(r.status || '')).length;
-
-    // Calculate average resolution time
-    const resolvedReports = data.filter(r => r.resolved_at);
-    const avgResolutionTime = resolvedReports.length > 0 
-      ? resolvedReports.reduce((acc, report) => {
-          const created = new Date(report.created_at);
-          const resolvedDate = new Date(report.resolved_at);
-          return acc + (resolvedDate.getTime() - created.getTime());
-        }, 0) / resolvedReports.length / (1000 * 60 * 60 * 24) // Convert to days
-      : 0;
-
-    // Reports by category
-    const categoryCount = data.reduce((acc, report) => {
-      const category = report.category || 'unknown';
-      acc[category] = (acc[category] || 0) + 1;
-      return acc;
-    }, {});
-
-    const reportsByCategory = Object.entries(categoryCount).map(([category, count]) => ({
-      name: category.replace('_', ' ').toUpperCase(),
-      value: count as number,
-      percentage: total > 0 ? Math.round(((count as number) / total) * 100) : 0,
-    }));
-
-    // Reports by status
-    const statusCount = data.reduce((acc, report) => {
-      const status = report.status || 'unknown';
-      acc[status] = (acc[status] || 0) + 1;
-      return acc;
-    }, {});
-
-    const reportsByStatus = Object.entries(statusCount).map(([status, count]) => ({
-      name: status.replace('_', ' ').toUpperCase(),
-      value: count as number,
-      percentage: total > 0 ? Math.round(((count as number) / total) * 100) : 0,
-    }));
-
-    // Reports by priority
-    const priorityCount = data.reduce((acc, report) => {
-      const priority = report.priority || 'unknown';
-      acc[priority] = (acc[priority] || 0) + 1;
-      return acc;
-    }, {});
-
-    const reportsByPriority = Object.entries(priorityCount).map(([priority, count]) => ({
-      name: priority ? priority.toUpperCase() : 'NOT SET',
-      value: count as number,
-      percentage: total > 0 ? Math.round(((count as number) / total) * 100) : 0,
-    }));
-
-    return {
-      totalReports: total,
-      resolvedReports: resolved,
-      avgResolutionTime,
-      reportsByCategory,
-      reportsByStatus,
-      reportsByPriority
-    };
+    return new Date().toISOString().split('T')[0];
   }
 }

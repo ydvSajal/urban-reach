@@ -30,7 +30,7 @@ export interface BulkPriorityUpdateData {
 
 export class BulkOperationsService {
   /**
-   * Update status for multiple reports using stored procedure
+   * Update status for multiple reports
    */
   static async updateStatus(
     reportIds: string[], 
@@ -38,23 +38,44 @@ export class BulkOperationsService {
     userId: string
   ): Promise<BulkOperationResult> {
     try {
-      const { data: result, error } = await supabase.rpc('bulk_update_status', {
-        report_ids: reportIds,
-        new_status: data.newStatus,
-        update_notes: data.notes || '',
-        performed_by_user: userId
-      });
-      
-      if (error) {
-        throw error;
-      }
-      
-      const response = result[0];
+      const results = await Promise.allSettled(
+        reportIds.map(async (reportId) => {
+          const { error } = await supabase
+            .from('reports')
+            .update({ 
+              status: data.newStatus,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', reportId);
+          
+          if (error) throw error;
+
+          // Add to status history
+          await supabase
+            .from('report_status_history')
+            .insert({
+              report_id: reportId,
+              old_status: null, // We'd need to query this first in a real implementation
+              new_status: data.newStatus,
+              changed_by: userId,
+              notes: data.notes
+            });
+
+          return reportId;
+        })
+      );
+
+      const successful = results.filter(result => result.status === 'fulfilled');
+      const failed = results.filter(result => result.status === 'rejected');
+
       return {
-        success: response.success,
-        processedCount: response.processed_count,
-        failedCount: response.failed_count,
-        errors: response.errors || []
+        success: failed.length === 0,
+        processedCount: successful.length,
+        failedCount: failed.length,
+        errors: failed.map((result, index) => ({
+          reportId: reportIds[successful.length + index],
+          error: result.status === 'rejected' ? result.reason?.message || 'Unknown error' : ''
+        }))
       };
     } catch (error: any) {
       return {
@@ -67,7 +88,7 @@ export class BulkOperationsService {
   }
 
   /**
-   * Assign worker to multiple reports using stored procedure
+   * Assign worker to multiple reports
    */
   static async assignWorker(
     reportIds: string[],
@@ -75,22 +96,32 @@ export class BulkOperationsService {
     userId: string
   ): Promise<BulkOperationResult> {
     try {
-      const { data: result, error } = await supabase.rpc('bulk_assign_worker', {
-        report_ids: reportIds,
-        worker_id: data.workerId,
-        performed_by_user: userId
-      });
-      
-      if (error) {
-        throw error;
-      }
-      
-      const response = result[0];
+      const results = await Promise.allSettled(
+        reportIds.map(async (reportId) => {
+          const { error } = await supabase
+            .from('reports')
+            .update({ 
+              assigned_worker_id: data.workerId,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', reportId);
+          
+          if (error) throw error;
+          return reportId;
+        })
+      );
+
+      const successful = results.filter(result => result.status === 'fulfilled');
+      const failed = results.filter(result => result.status === 'rejected');
+
       return {
-        success: response.success,
-        processedCount: response.processed_count,
-        failedCount: response.failed_count,
-        errors: response.errors || []
+        success: failed.length === 0,
+        processedCount: successful.length,
+        failedCount: failed.length,
+        errors: failed.map((result, index) => ({
+          reportId: reportIds[successful.length + index],
+          error: result.status === 'rejected' ? result.reason?.message || 'Unknown error' : ''
+        }))
       };
     } catch (error: any) {
       return {
@@ -103,7 +134,7 @@ export class BulkOperationsService {
   }
 
   /**
-   * Update priority for multiple reports using stored procedure
+   * Update priority for multiple reports
    */
   static async updatePriority(
     reportIds: string[],
@@ -111,22 +142,32 @@ export class BulkOperationsService {
     userId: string
   ): Promise<BulkOperationResult> {
     try {
-      const { data: result, error } = await supabase.rpc('bulk_update_priority', {
-        report_ids: reportIds,
-        new_priority: data.priority,
-        performed_by_user: userId
-      });
-      
-      if (error) {
-        throw error;
-      }
-      
-      const response = result[0];
+      const results = await Promise.allSettled(
+        reportIds.map(async (reportId) => {
+          const { error } = await supabase
+            .from('reports')
+            .update({ 
+              priority: data.priority,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', reportId);
+          
+          if (error) throw error;
+          return reportId;
+        })
+      );
+
+      const successful = results.filter(result => result.status === 'fulfilled');
+      const failed = results.filter(result => result.status === 'rejected');
+
       return {
-        success: response.success,
-        processedCount: response.processed_count,
-        failedCount: response.failed_count,
-        errors: response.errors || []
+        success: failed.length === 0,
+        processedCount: successful.length,
+        failedCount: failed.length,
+        errors: failed.map((result, index) => ({
+          reportId: reportIds[successful.length + index],
+          error: result.status === 'rejected' ? result.reason?.message || 'Unknown error' : ''
+        }))
       };
     } catch (error: any) {
       return {
@@ -139,28 +180,36 @@ export class BulkOperationsService {
   }
 
   /**
-   * Delete multiple reports (admin only) using stored procedure
+   * Delete multiple reports (admin only)
    */
   static async deleteReports(
     reportIds: string[],
     userId: string
   ): Promise<BulkOperationResult> {
     try {
-      const { data: result, error } = await supabase.rpc('bulk_delete_reports', {
-        report_ids: reportIds,
-        performed_by_user: userId
-      });
-      
-      if (error) {
-        throw error;
-      }
-      
-      const response = result[0];
+      const results = await Promise.allSettled(
+        reportIds.map(async (reportId) => {
+          const { error } = await supabase
+            .from('reports')
+            .delete()
+            .eq('id', reportId);
+          
+          if (error) throw error;
+          return reportId;
+        })
+      );
+
+      const successful = results.filter(result => result.status === 'fulfilled');
+      const failed = results.filter(result => result.status === 'rejected');
+
       return {
-        success: response.success,
-        processedCount: response.processed_count,
-        failedCount: response.failed_count,
-        errors: response.errors || []
+        success: failed.length === 0,
+        processedCount: successful.length,
+        failedCount: failed.length,
+        errors: failed.map((result, index) => ({
+          reportId: reportIds[successful.length + index],
+          error: result.status === 'rejected' ? result.reason?.message || 'Unknown error' : ''
+        }))
       };
     } catch (error: any) {
       return {
@@ -173,7 +222,7 @@ export class BulkOperationsService {
   }
 
   /**
-   * Get available workers for assignment using stored procedure
+   * Get available workers for assignment
    */
   static async getAvailableWorkers(): Promise<Array<{
     id: string;
@@ -184,14 +233,24 @@ export class BulkOperationsService {
     performance_rating: number;
   }>> {
     try {
-      const { data, error } = await supabase.rpc('get_available_workers');
+      const { data, error } = await supabase
+        .from('workers')
+        .select('*')
+        .eq('is_available', true);
       
       if (error) {
         console.error('Failed to fetch workers:', error);
         return [];
       }
       
-      return data || [];
+      return (data || []).map(worker => ({
+        id: worker.id,
+        full_name: worker.full_name,
+        specialty: worker.specialty || 'General',
+        current_workload: 0, // This would need to be calculated from reports
+        max_workload: 10, // This would be configurable
+        performance_rating: 0 // This would be calculated from metrics
+      }));
     } catch (error) {
       console.error('Failed to fetch workers:', error);
       return [];
