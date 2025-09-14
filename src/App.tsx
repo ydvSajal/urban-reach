@@ -36,7 +36,8 @@ const App = () => {
 
   useEffect(() => {
     const fetchRole = async (userId: string, email: string) => {
-      if (email === "sajalkumar1765@gmail.com") {
+      // Check if it's a Bennett email or specific admin email for testing
+      if (email === "sajalkumar1765@gmail.com" || email?.includes("@bennett.edu.in")) {
         setUserRole("admin");
         return;
       }
@@ -52,7 +53,7 @@ const App = () => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        if (session.user.email === "sajalkumar1765@gmail.com") {
+        if (session.user.email === "sajalkumar1765@gmail.com" || session.user.email?.includes("@bennett.edu.in")) {
           setUserRole("admin");
           setLoading(false);
         } else {
@@ -70,7 +71,7 @@ const App = () => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        if (session.user.email === "sajalkumar1765@gmail.com") {
+        if (session.user.email === "sajalkumar1765@gmail.com" || session.user.email?.includes("@bennett.edu.in")) {
           setUserRole("admin");
           setLoading(false);
         } else {
@@ -115,25 +116,25 @@ const App = () => {
                 )} />
 
                 {/* Admin Routes */}
-                {user && (userRole === "admin" || (session?.user?.email === "sajalkumar1765@gmail.com")) && (
+                {user && (userRole === "admin" || (session?.user?.email === "sajalkumar1765@gmail.com") || (session?.user?.email?.includes("@bennett.edu.in"))) && (
                   <Route path="/dashboard" element={<Layout userRole={userRole}><Dashboard /></Layout>} />
                 )}
-                {user && (userRole === "admin" || (session?.user?.email === "sajalkumar1765@gmail.com")) && (
+                {user && (userRole === "admin" || (session?.user?.email === "sajalkumar1765@gmail.com") || (session?.user?.email?.includes("@bennett.edu.in"))) && (
                   <Route path="/reports" element={<Layout userRole={userRole}><Reports /></Layout>} />
                 )}
-                {user && (userRole === "admin" || (session?.user?.email === "sajalkumar1765@gmail.com")) && (
+                {user && (userRole === "admin" || (session?.user?.email === "sajalkumar1765@gmail.com") || (session?.user?.email?.includes("@bennett.edu.in"))) && (
                   <Route path="/reports/:id" element={<Layout userRole={userRole}><ReportDetail /></Layout>} />
                 )}
-                {user && (userRole === "admin" || (session?.user?.email === "sajalkumar1765@gmail.com")) && (
+                {user && (userRole === "admin" || (session?.user?.email === "sajalkumar1765@gmail.com") || (session?.user?.email?.includes("@bennett.edu.in"))) && (
                   <Route path="/workers" element={<Layout userRole={userRole}><Workers /></Layout>} />
                 )}
-                {user && (userRole === "admin" || (session?.user?.email === "sajalkumar1765@gmail.com")) && (
+                {user && (userRole === "admin" || (session?.user?.email === "sajalkumar1765@gmail.com") || (session?.user?.email?.includes("@bennett.edu.in"))) && (
                   <Route path="/analytics" element={<Layout userRole={userRole}><Analytics /></Layout>} />
                 )}
-                {user && (userRole === "admin" || (session?.user?.email === "sajalkumar1765@gmail.com")) && (
+                {user && (userRole === "admin" || (session?.user?.email === "sajalkumar1765@gmail.com") || (session?.user?.email?.includes("@bennett.edu.in"))) && (
                   <Route path="/maps" element={<Layout userRole={userRole}><Maps /></Layout>} />
                 )}
-                {user && (userRole === "admin" || (session?.user?.email === "sajalkumar1765@gmail.com")) && (
+                {user && (userRole === "admin" || (session?.user?.email === "sajalkumar1765@gmail.com") || (session?.user?.email?.includes("@bennett.edu.in"))) && (
                   <Route path="/notifications" element={<Layout userRole={userRole}><NotificationSettings /></Layout>} />
                 )}
 
