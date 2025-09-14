@@ -9,9 +9,13 @@ import {
   FileText, 
   Users, 
   BarChart3, 
+  Bell,
+  MapPin,
   LogOut,
   Menu
 } from "lucide-react";
+import NotificationCenter from "./NotificationCenter";
+import { NotificationPermissionPrompt, NotificationStatusIndicator } from "./NotificationProvider";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState, useEffect } from "react";
 
@@ -43,10 +47,10 @@ const Layout = ({ children, userRole }: LayoutProps) => {
       });
       
       navigate("/auth");
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Error signing out",
-        description: error.message,
+        description: (error as Error)?.message || "Failed to sign out",
         variant: "destructive",
       });
     }
@@ -57,15 +61,23 @@ const Layout = ({ children, userRole }: LayoutProps) => {
     { name: "Reports", href: "/reports", icon: FileText },
     { name: "Workers", href: "/workers", icon: Users },
     { name: "Analytics", href: "/analytics", icon: BarChart3 },
+    { name: "Maps", href: "/maps", icon: MapPin },
+    { name: "Notifications", href: "/notifications", icon: Bell },
   ];
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
-      <div className="flex items-center gap-2 p-6 border-b">
-        <Building2 className="h-8 w-8 text-primary" />
-        <div>
-          <h1 className="text-lg font-semibold">Municipal Portal</h1>
-          <p className="text-sm text-muted-foreground capitalize">{userRole} Dashboard</p>
+      <div className="flex items-center justify-between p-6 border-b">
+        <div className="flex items-center gap-2">
+          <Building2 className="h-8 w-8 text-primary" />
+          <div>
+            <h1 className="text-lg font-semibold">Municipal Portal</h1>
+            <p className="text-sm text-muted-foreground capitalize">{userRole} Dashboard</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <NotificationStatusIndicator />
+          <NotificationCenter />
         </div>
       </div>
 
@@ -134,6 +146,9 @@ const Layout = ({ children, userRole }: LayoutProps) => {
       {/* Main content */}
       <div className="md:pl-64">
         <main className="flex-1">
+          <div className="p-6">
+            <NotificationPermissionPrompt />
+          </div>
           {children}
         </main>
       </div>

@@ -5,15 +5,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import { Loader2, MapPin, FileText } from "lucide-react";
+import { Loader2, MapPin, FileText, Camera, AlertCircle } from "lucide-react";
+import ImageUpload from "@/components/ImageUpload";
+import { uploadFiles } from "@/lib/storage";
+import { useNetworkStatus } from "@/hooks/useNetworkStatus";
+import { AddressFormatter } from "@/lib/geocoding";
+import LocationPicker, { type LocationData } from "@/components/LocationPicker";
 
 const SubmitReport = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [uploadingImages, setUploadingImages] = useState(false);
+  // Remove unused selectedFiles state since we handle files directly in the upload function
+  const networkStatus = useNetworkStatus();
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -22,6 +31,8 @@ const SubmitReport = () => {
     landmark: "",
     priority: "medium" as Database['public']['Enums']['priority_level'],
   });
+  const [selectedLocation, setSelectedLocation] = useState<LocationData | null>(null);
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
 
   const categories = [
     { value: "roads", label: "Road Maintenance" },
@@ -36,18 +47,82 @@ const SubmitReport = () => {
     { value: "other", label: "Other" },
   ];
 
+  // Handle image upload
+  const handleImageUpload = async (files: File[]): Promise<string[]> => {
+    if (!files.length) return [];
+    
+    setUploadingImages(true);
+    try {
+      // Generate a temporary report ID for file organization
+      const tempReportId = `temp_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+      
+      const uploadedUrls = await uploadFiles(files, tempReportId);
+      
+      // Filter out failed uploads (empty strings)
+      const successfulUrls = uploadedUrls.filter(url => url !== '');
+      
+      if (successfulUrls.length !== files.length) {
+        toast({
+          title: "Some images failed to upload",
+          description: `${successfulUrls.length} of ${files.length} images uploaded successfully.`,
+          variant: "destructive",
+        });
+      }
+      
+      return successfulUrls;
+    } catch (error: unknown) {
+      console.error("Image upload error:", error);
+      toast({
+        title: "Image upload failed",
+        description: (error as Error)?.message || "Failed to upload images. You can still submit the report without images.",
+        variant: "destructive",
+      });
+      return [];
+    } finally {
+      setUploadingImages(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error("You must be logged in to submit a report");
+      }
+
       if (!formData.category) {
         toast({
           title: "Category required",
           description: "Please select a category for your report",
           variant: "destructive",
         });
+        setLoading(false);
+        return;
+      }
+
+      // Validate location - either manual address or selected location required
+      if (!selectedLocation && !AddressFormatter.isValidAddressString(formData.location)) {
+        toast({
+          title: "Location required",
+          description: "Please provide a valid address or select a location on the map",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // Check network status
+      if (!networkStatus.online) {
+        toast({
+          title: "No internet connection",
+          description: "Please check your connection and try again",
+          variant: "destructive",
+        });
+        setLoading(false);
         return;
       }
 
@@ -78,39 +153,62 @@ const SubmitReport = () => {
         }
       }
 
+      // Images are handled directly in the ImageUpload component
+      let imageUrls: string[] = [];
+      // Images will be handled by the ImageUpload component's onUpload callback
+
+      // Prepare location data
+      const locationAddress = selectedLocation 
+        ? selectedLocation.address 
+        : AddressFormatter.standardizeAddress(formData.location);
+      
+      const latitude = selectedLocation?.latitude || null;
+      const longitude = selectedLocation?.longitude || null;
+
+      // Create the report
       const { data, error } = await supabase
         .from("reports")
         .insert({
           title: formData.title,
           description: formData.description,
           category: formData.category,
-          location_address: formData.location,
+          location_address: locationAddress,
+          latitude: latitude,
+          longitude: longitude,
           priority: formData.priority,
           citizen_id: user.id,
-          council_id: profileData?.council_id || "00000000-0000-0000-0000-000000000000", // Default council if none
+          council_id: profileData.council_id || "00000000-0000-0000-0000-000000000000", // Default council if none
           status: "pending",
           report_number: "", // Will be set by database trigger
+          images: imageUrls, // Add uploaded image URLs
         })
         .select()
         .maybeSingle();
 
       if (error) throw error;
 
+      const locationInfo = selectedLocation 
+        ? ` Location: ${selectedLocation.city}, ${selectedLocation.state}` 
+        : '';
+      
       toast({
         title: "Report submitted successfully!",
-        description: `Your report #${data.report_number} has been submitted and is being reviewed.`,
+        description: `Your report #${data.report_number} has been submitted and is being reviewed.${
+          imageUrls.length > 0 ? ` ${imageUrls.length} image${imageUrls.length === 1 ? '' : 's'} attached.` : ''
+        }${locationInfo}`,
       });
 
       navigate("/citizen-dashboard");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error submitting report:", error);
       toast({
         title: "Error submitting report",
-        description: error.message,
+        description: (error as Error)?.message || "Failed to submit report. Please try again.",
         variant: "destructive",
       });
     } finally {
       setLoading(false);
+      setUploadingImages(false);
     }
   };
 
@@ -135,6 +233,16 @@ const SubmitReport = () => {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Network Status Alert */}
+            {!networkStatus.online && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  You're currently offline. Please check your internet connection before submitting.
+                </AlertDescription>
+              </Alert>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="title">Issue Title *</Label>
               <Input
@@ -143,6 +251,7 @@ const SubmitReport = () => {
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 placeholder="Brief description of the issue"
                 required
+                disabled={loading || uploadingImages}
               />
             </div>
 
@@ -152,6 +261,7 @@ const SubmitReport = () => {
                 value={formData.category} 
                 onValueChange={(value: Database['public']['Enums']['report_category']) => setFormData({ ...formData, category: value })}
                 required
+                disabled={loading || uploadingImages}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select issue category" />
@@ -175,29 +285,119 @@ const SubmitReport = () => {
                 placeholder="Provide a detailed description of the issue, including when you noticed it and how it affects you or the community"
                 className="min-h-[120px]"
                 required
+                disabled={loading || uploadingImages}
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="location">Location Address *</Label>
-                <Input
-                  id="location"
-                  value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  placeholder="Street address or area name"
-                  required
-                />
-              </div>
+            {/* Image Upload Section */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Camera className="h-4 w-4" />
+                Photos (Optional)
+              </Label>
+              <p className="text-sm text-muted-foreground mb-3">
+                Add photos to help us understand the issue better. You can upload up to 5 images.
+              </p>
+              <ImageUpload
+                maxFiles={5}
+                maxSizePerFile={5 * 1024 * 1024} // 5MB
+                acceptedTypes={['image/jpeg', 'image/png', 'image/webp']}
+                onUpload={handleImageUpload}
+                disabled={loading || uploadingImages}
+                className="border rounded-lg p-4"
+              />
+              {uploadingImages && (
+                <Alert>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <AlertDescription>
+                    Uploading images... Please don't close this page.
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="landmark">Nearby Landmark</Label>
-                <Input
-                  id="landmark"
-                  value={formData.landmark}
-                  onChange={(e) => setFormData({ ...formData, landmark: e.target.value })}
-                  placeholder="Hospital, school, market, etc."
+            {/* Location Section */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-2">
+                  <MapPin className="h-4 w-4" />
+                  Location Information *
+                </Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowLocationPicker(!showLocationPicker)}
+                  disabled={loading || uploadingImages}
+                >
+                  {showLocationPicker ? "Hide Map" : "Use Map"}
+                </Button>
+              </div>
+              
+              {showLocationPicker && (
+                <LocationPicker
+                  onLocationSelect={(location) => {
+                    setSelectedLocation(location);
+                    setFormData({ 
+                      ...formData, 
+                      location: location.address,
+                      landmark: location.landmark || formData.landmark
+                    });
+                  }}
+                  enableGPS={true}
+                  enableSearch={true}
+                  height="300px"
                 />
+              )}
+              
+              {selectedLocation && (
+                <Alert>
+                  <MapPin className="h-4 w-4" />
+                  <AlertDescription>
+                    <strong>Selected Location:</strong> {selectedLocation.address}
+                    <br />
+                    <span className="text-xs text-muted-foreground">
+                      Coordinates: {selectedLocation.latitude.toFixed(6)}, {selectedLocation.longitude.toFixed(6)}
+                    </span>
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="location">Location Address *</Label>
+                  <Input
+                    id="location"
+                    value={formData.location}
+                    onChange={(e) => {
+                      setFormData({ ...formData, location: e.target.value });
+                      // Clear selected location if user manually edits address
+                      if (selectedLocation && e.target.value !== selectedLocation.address) {
+                        setSelectedLocation(null);
+                      }
+                    }}
+                    placeholder="Street address or area name"
+                    required={!selectedLocation}
+                    disabled={loading || uploadingImages}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {selectedLocation 
+                      ? "Address auto-filled from map selection. You can edit if needed." 
+                      : "Enter address manually or use the map above to select location"
+                    }
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="landmark">Nearby Landmark</Label>
+                  <Input
+                    id="landmark"
+                    value={formData.landmark}
+                    onChange={(e) => setFormData({ ...formData, landmark: e.target.value })}
+                    placeholder="Hospital, school, market, etc."
+                    disabled={loading || uploadingImages}
+                  />
+                </div>
               </div>
             </div>
 
@@ -206,6 +406,7 @@ const SubmitReport = () => {
             <Select 
               value={formData.priority} 
               onValueChange={(value: Database['public']['Enums']['priority_level']) => setFormData({ ...formData, priority: value })}
+              disabled={loading || uploadingImages}
             >
                 <SelectTrigger>
                   <SelectValue />
@@ -219,18 +420,33 @@ const SubmitReport = () => {
             </div>
 
             <div className="flex gap-4">
-              <Button type="submit" disabled={loading} className="flex-1">
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Submit Report
+              <Button 
+                type="submit" 
+                disabled={loading || uploadingImages || !networkStatus.online} 
+                className="flex-1"
+              >
+                {(loading || uploadingImages) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {uploadingImages ? "Uploading Images..." : loading ? "Submitting..." : "Submit Report"}
               </Button>
               <Button 
                 type="button" 
                 variant="outline" 
                 onClick={() => navigate("/citizen-dashboard")}
-                disabled={loading}
+                disabled={loading || uploadingImages}
               >
                 Cancel
               </Button>
+            </div>
+
+            {/* Submission Tips */}
+            <div className="text-sm text-muted-foreground space-y-1">
+              <p>💡 <strong>Tips for better reports:</strong></p>
+              <ul className="list-disc list-inside space-y-1 ml-4">
+                <li>Include clear photos showing the issue</li>
+                <li>Provide specific location details</li>
+                <li>Describe how the issue affects you or others</li>
+                <li>Mention if this is a recurring problem</li>
+              </ul>
             </div>
           </form>
         </CardContent>

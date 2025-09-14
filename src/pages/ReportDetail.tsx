@@ -4,11 +4,18 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { ArrowLeft, MapPin, Calendar, User, Phone, Mail, Camera, History, Save } from "lucide-react";
+import { ArrowLeft, MapPin, User, Phone, Mail, Save } from "lucide-react";
+import ImageGallery from "@/components/ImageGallery";
+import WorkerAssignment from "@/components/WorkerAssignment";
+import StatusUpdate from "@/components/StatusUpdate";
+import StatusTimeline from "@/components/StatusTimeline";
+import { updateStatusWithNotification } from "@/lib/notifications";
+import type { ReportStatus } from "@/lib/status-management";
+import { useReportSubscription, useStatusHistorySubscription } from "@/hooks/useRealtimeSubscription";
 
 interface Report {
   id: string;
@@ -68,14 +75,59 @@ const ReportDetail = () => {
   const [newPriority, setNewPriority] = useState("");
   const [assignedWorkerId, setAssignedWorkerId] = useState("");
   const [statusNotes, setStatusNotes] = useState("");
+  const [userRole, setUserRole] = useState<string>("");
 
   useEffect(() => {
     if (id) {
       loadReportDetail();
       loadStatusHistory();
       loadWorkers();
+      loadUserRole();
     }
   }, [id]);
+
+  // Set up realtime subscriptions for report updates
+  useReportSubscription(
+    id,
+    (updatedReport) => {
+      setReport(prev => prev ? { ...prev, ...updatedReport } : null);
+      toast({
+        title: "Report Updated",
+        description: "This report has been updated in real-time",
+      });
+    },
+    !!id
+  );
+
+  // Set up realtime subscriptions for status history updates
+  useStatusHistorySubscription(
+    id,
+    (newStatusEntry) => {
+      setStatusHistory(prev => [newStatusEntry, ...prev]);
+      toast({
+        title: "Status Updated",
+        description: `Report status changed to ${newStatusEntry.new_status.replace('_', ' ')}`,
+      });
+    },
+    !!id
+  );
+
+  const loadUserRole = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("user_id", user.id)
+          .single();
+        
+        setUserRole(profile?.role || "citizen");
+      }
+    } catch (error) {
+      console.error("Error loading user role:", error);
+    }
+  };
 
   const loadReportDetail = async () => {
     try {
@@ -116,11 +168,11 @@ const ReportDetail = () => {
       setNewStatus(data.status);
       setNewPriority(data.priority);
       setAssignedWorkerId(data.assigned_worker_id || "");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error loading report:", error);
       toast({
         title: "Error loading report",
-        description: error.message,
+        description: (error as Error)?.message || "Failed to load report",
         variant: "destructive",
       });
       navigate("/reports");
@@ -160,7 +212,7 @@ const ReportDetail = () => {
       );
 
       setStatusHistory(historyWithProfiles);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error loading status history:", error);
     }
   };
@@ -175,7 +227,7 @@ const ReportDetail = () => {
       if (error) throw error;
 
       setWorkers(data || []);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error loading workers:", error);
     }
   };
@@ -239,15 +291,73 @@ const ReportDetail = () => {
       loadReportDetail();
       loadStatusHistory();
       setStatusNotes("");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error updating report:", error);
       toast({
         title: "Error updating report",
-        description: error.message,
+        description: (error as Error)?.message || "Failed to update report",
         variant: "destructive",
       });
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const handleWorkerAssignment = async (workerId: string | null, workerName: string) => {
+    if (!report) return;
+
+    try {
+      const { error } = await supabase
+        .from("reports")
+        .update({ 
+          assigned_worker_id: workerId,
+          status: workerId ? 'acknowledged' : report.status // Auto-acknowledge when assigning
+        })
+        .eq("id", report.id);
+
+      if (error) throw error;
+
+      // Add status history entry for assignment
+      const { data: userData } = await supabase.auth.getUser();
+      const { error: historyError } = await supabase
+        .from("report_status_history")
+        .insert([{
+          report_id: report.id,
+          old_status: report.status as any,
+          new_status: workerId ? 'acknowledged' as any : report.status as any,
+          notes: workerId 
+            ? `Assigned to ${workerName}` 
+            : `Unassigned from ${report.workers?.full_name || 'worker'}`,
+          changed_by: userData.user?.id || "",
+        }]);
+
+      if (historyError) {
+        console.error("Error adding status history:", historyError);
+      }
+
+      // Reload data to reflect changes
+      await loadReportDetail();
+      await loadStatusHistory();
+      
+    } catch (error: unknown) {
+      console.error("Error assigning worker:", error);
+      throw error;
+    }
+  };
+
+  const handleStatusUpdate = async (newStatus: ReportStatus, notes: string) => {
+    if (!report) return;
+
+    try {
+      await updateStatusWithNotification(report.id, newStatus, notes, userRole);
+      
+      // Reload data to reflect changes
+      await loadReportDetail();
+      await loadStatusHistory();
+      
+    } catch (error: unknown) {
+      console.error("Error updating status:", error);
+      throw error;
     }
   };
 
@@ -374,20 +484,13 @@ const ReportDetail = () => {
 
               {report.images && report.images.length > 0 && (
                 <div>
-                  <h4 className="font-medium text-sm flex items-center gap-2 mb-2">
-                    <Camera className="h-4 w-4" />
-                    Images ({report.images.length})
-                  </h4>
-                  <div className="grid grid-cols-2 gap-2">
-                    {report.images.map((image, index) => (
-                      <img
-                        key={index}
-                        src={image}
-                        alt={`Report image ${index + 1}`}
-                        className="w-full h-32 object-cover rounded border"
-                      />
-                    ))}
-                  </div>
+                  <ImageGallery
+                    images={report.images}
+                    title="Report Images"
+                    showDownload={true}
+                    showShare={true}
+                    className="mt-4"
+                  />
                 </div>
               )}
             </CardContent>
@@ -428,29 +531,36 @@ const ReportDetail = () => {
 
         {/* Actions Sidebar */}
         <div className="space-y-6">
-          {/* Update Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Update Report</CardTitle>
-              <CardDescription>Change status, priority, or assignment</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="status">Status</Label>
-                <Select value={newStatus} onValueChange={setNewStatus}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="acknowledged">Acknowledged</SelectItem>
-                    <SelectItem value="in_progress">In Progress</SelectItem>
-                    <SelectItem value="resolved">Resolved</SelectItem>
-                    <SelectItem value="closed">Closed</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+          {/* Worker Assignment - Only for Admins */}
+          {userRole === 'admin' && (
+            <WorkerAssignment
+              reportId={report.id}
+              reportCategory={report.category}
+              currentAssignee={report.workers}
+              onAssign={handleWorkerAssignment}
+              disabled={updating}
+            />
+          )}
 
+          {/* Status Update - Only for Admins and Workers */}
+          {(userRole === 'admin' || userRole === 'worker') && (
+            <StatusUpdate
+              reportId={report.id}
+              currentStatus={report.status as ReportStatus}
+              userRole={userRole as 'admin' | 'worker'}
+              onStatusUpdate={handleStatusUpdate}
+              disabled={updating}
+            />
+          )}
+
+          {/* Legacy Update Actions - Keep for priority changes */}
+          {userRole === 'admin' && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Additional Settings</CardTitle>
+                <CardDescription>Update priority and other settings</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="priority">Priority</Label>
                 <Select value={newPriority} onValueChange={setNewPriority}>
@@ -465,109 +575,28 @@ const ReportDetail = () => {
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="worker">Assign Worker</Label>
-                <Select value={assignedWorkerId} onValueChange={setAssignedWorkerId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select worker" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">Unassigned</SelectItem>
-                    {workers.map((worker) => (
-                      <SelectItem key={worker.id} value={worker.id}>
-                        {worker.full_name} ({worker.specialty})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {newStatus !== report.status && (
-                <div className="space-y-2">
-                  <Label htmlFor="notes">Status Change Notes</Label>
-                  <Textarea
-                    id="notes"
-                    placeholder="Optional notes about this status change..."
-                    value={statusNotes}
-                    onChange={(e) => setStatusNotes(e.target.value)}
-                    rows={3}
-                  />
-                </div>
+              {(newPriority !== report.priority) && (
+                <Button 
+                  onClick={handleUpdate} 
+                  disabled={updating}
+                  className="w-full"
+                >
+                  <Save className="mr-2 h-4 w-4" />
+                  {updating ? "Updating..." : "Update Priority"}
+                </Button>
               )}
-
-              <Button 
-                onClick={handleUpdate} 
-                disabled={updating}
-                className="w-full"
-              >
-                <Save className="mr-2 h-4 w-4" />
-                {updating ? "Updating..." : "Update Report"}
-              </Button>
             </CardContent>
           </Card>
+          )}
 
-          {/* Report Timeline */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <History className="h-5 w-5" />
-                Timeline
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {/* Creation */}
-                <div className="flex items-start gap-3">
-                  <div className="mt-1">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">Report Created</p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatDate(report.created_at)}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Status History */}
-                {statusHistory.map((entry, index) => (
-                  <div key={entry.id} className="flex items-start gap-3">
-                    <div className="mt-1">
-                      <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                    </div>
-                    <div className="flex-1">
-                    <p className="text-sm font-medium">
-                      Status changed to {entry.new_status.replace('_', ' ')}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      by {entry.profiles?.full_name || 'System'} • {formatDate(entry.created_at)}
-                    </p>
-                      {entry.notes && (
-                        <p className="text-xs text-muted-foreground mt-1 italic">
-                          "{entry.notes}"
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-
-                {/* Resolution */}
-                {report.resolved_at && (
-                  <div className="flex items-start gap-3">
-                    <div className="mt-1">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium">Report Resolved</p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDate(report.resolved_at)}
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          {/* Status Timeline */}
+          <StatusTimeline
+            reportId={report.id}
+            reportCreatedAt={report.created_at}
+            reportResolvedAt={report.resolved_at}
+            showAllByDefault={false}
+            maxVisibleEntries={5}
+          />
 
           {/* Report Info */}
           <Card>

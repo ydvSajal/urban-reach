@@ -8,10 +8,13 @@ import {
   LayoutDashboard, 
   FileText, 
   Plus,
+  Bell,
   LogOut,
   Menu,
   User
 } from "lucide-react";
+import NotificationCenter from "./NotificationCenter";
+import { NotificationPermissionPrompt, NotificationStatusIndicator } from "./NotificationProvider";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState, useEffect } from "react";
 
@@ -55,6 +58,7 @@ const CitizenLayout = ({ children }: CitizenLayoutProps) => {
     { name: "Dashboard", href: "/citizen-dashboard", icon: LayoutDashboard },
     { name: "Submit Report", href: "/submit-report", icon: Plus },
     { name: "My Reports", href: "/my-reports", icon: FileText },
+    { name: "Notifications", href: "/notifications", icon: Bell },
   ];
 
   const SidebarContent = () => (
@@ -131,7 +135,23 @@ const CitizenLayout = ({ children }: CitizenLayoutProps) => {
 
       {/* Main content */}
       <div className="md:pl-64">
+        {/* Header */}
+        <header className="bg-background border-b px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <h2 className="text-lg font-semibold">Citizen Portal</h2>
+            </div>
+            <div className="flex items-center gap-2">
+              <NotificationStatusIndicator />
+              <NotificationCenter />
+            </div>
+          </div>
+        </header>
+        
         <main className="flex-1">
+          <div className="p-6">
+            <NotificationPermissionPrompt />
+          </div>
           {children}
         </main>
       </div>

@@ -1,0 +1,86 @@
+/* Custom marker cluster styles */
+.marker-cluster-small {
+  background-color: rgba(59, 130, 246, 0.6);
+}
+
+.marker-cluster-small div {
+  background-color: rgba(59, 130, 246, 0.8);
+}
+
+.marker-cluster-medium {
+  background-color: rgba(249, 115, 22, 0.6);
+}
+
+.marker-cluster-medium div {
+  background-color: rgba(249, 115, 22, 0.8);
+}
+
+.marker-cluster-large {
+  background-color: rgba(220, 38, 38, 0.6);
+}
+
+.marker-cluster-large div {
+  background-color: rgba(220, 38, 38, 0.8);
+}
+
+.marker-cluster {
+  border-radius: 50%;
+}
+
+.marker-cluster div {
+  width: 30px;
+  height: 30px;
+  margin-left: 5px;
+  margin-top: 5px;
+  text-align: center;
+  border-radius: 50%;
+  font: 12px "Helvetica Neue", Arial, Helvetica, sans-serif;
+  color: white;
+  font-weight: bold;
+}
+
+.marker-cluster span {
+  line-height: 30px;
+}
+
+/* Custom popup styles */
+.custom-popup .leaflet-popup-content-wrapper {
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+}
+
+.custom-popup .leaflet-popup-content {
+  margin: 0;
+  padding: 0;
+}
+
+.custom-popup .leaflet-popup-tip {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-top: none;
+  border-right: none;
+}
+
+/* Custom div icon */
+.custom-div-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .report-popup {
+    min-width: 240px !important;
+  }
+  
+  .marker-cluster div {
+    width: 25px;
+    height: 25px;
+    font-size: 11px;
+  }
+  
+  .marker-cluster span {
+    line-height: 25px;
+  }
+}
