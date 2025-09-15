@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { MapPin, Loader2, Filter, Eye, MessageSquare, Check, X } from "lucide-react";
+import { MapPin, Loader2, Filter, Eye, MessageSquare, Check, X, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -52,31 +52,107 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
   const [reports, setReports] = useState<Report[]>([]);
   const [filteredReports, setFilteredReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
+  const [mapReady, setMapReady] = useState(false);
   const [filters, setFilters] = useState<MapFilters>({ status: "all", category: "all", priority: "all" });
   const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
     
-    const map = L.map(mapRef.current).setView([20.5937, 78.9629], 5);
+    // Wait for the container to be visible and have dimensions
+    const initializeMap = () => {
+      if (!mapRef.current) return;
+      
+      const container = mapRef.current;
+      const rect = container.getBoundingClientRect();
+      
+      // Only initialize if container has dimensions
+      if (rect.width === 0 || rect.height === 0) {
+        setTimeout(initializeMap, 100);
+        return;
+      }
+      
+      console.log('Initializing map with container size:', rect.width, 'x', rect.height);
+      
+      const map = L.map(container, {
+        preferCanvas: false,
+        zoomControl: true,
+        attributionControl: true,
+        // Ensure proper initialization
+        renderer: L.svg()
+      }).setView([28.4509, 77.5847], 13);
+      
+      // Add tile layer with proper configuration
+      const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19,
+        subdomains: ['a', 'b', 'c'],
+        errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==',
+        // Add additional options for better reliability
+        crossOrigin: true,
+        timeout: 10000
+      });
+      
+      tileLayer.addTo(map);
+      
+      // Add event listeners to debug tile loading
+      tileLayer.on('loading', () => console.log('Tiles loading...'));
+      tileLayer.on('load', () => {
+        console.log('Tiles loaded successfully');
+        // Force a resize after tiles load
+        setTimeout(() => map.invalidateSize(), 50);
+      });
+      tileLayer.on('tileerror', (e) => {
+        console.error('Tile error:', e);
+        // Try alternative tile server if primary fails
+        console.log('Attempting to use alternative tile server...');
+      });
+      
+      // Ensure proper sizing
+      setTimeout(() => {
+        map.invalidateSize();
+        console.log('Map initialized and resized');
+        setMapReady(true);
+      }, 200);
+      
+      mapInstanceRef.current = map;
+    };
     
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '\u00a9 OpenStreetMap contributors'
-    }).addTo(map);
-    
-    mapInstanceRef.current = map;
+    // Start initialization
+    initializeMap();
 
     return () => {
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
       }
+      setMapReady(false);
     };
   }, []);
 
   useEffect(() => {
     loadReports();
   }, []);
+
+  // Debug effect to check map container dimensions
+  useEffect(() => {
+    if (mapRef.current) {
+      const checkDimensions = () => {
+        const rect = mapRef.current?.getBoundingClientRect();
+        console.log('Map container dimensions:', rect);
+        if (mapInstanceRef.current && rect) {
+          mapInstanceRef.current.invalidateSize();
+        }
+      };
+      
+      checkDimensions();
+      
+      // Check again after a delay
+      const timer = setTimeout(checkDimensions, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [loading, reports.length]);
 
   useEffect(() => {
     if (mapInstanceRef.current) {
@@ -90,11 +166,30 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
 
   const loadReports = async () => {
     try {
-      const { data, error } = await supabase
+      // Get current user and their council
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("council_id")
+        .eq("user_id", user.id)
+        .single();
+
+      const userCouncilId = profile?.council_id;
+
+      // Load reports with location data, filtered by council
+      let reportsQuery = supabase
         .from("reports")
         .select("*")
         .not("latitude", "is", null)
         .not("longitude", "is", null);
+      
+      if (userCouncilId) {
+        reportsQuery = reportsQuery.eq("council_id", userCouncilId);
+      }
+
+      const { data, error } = await reportsQuery;
         
       if (error) throw error;
       setReports(data || []);
@@ -179,9 +274,9 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
   const addMarkersToMap = () => {
     if (!mapInstanceRef.current) return;
 
-    // Remove existing markers
+    // Remove existing markers by clearing all layers except tile layers
     mapInstanceRef.current.eachLayer(layer => {
-      if ((layer as any).options && (layer as any).options.pane === "markerPane") {
+      if (layer instanceof L.Marker || layer instanceof L.FeatureGroup) {
         mapInstanceRef.current!.removeLayer(layer);
       }
     });
@@ -242,10 +337,22 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
 
     // Fit bounds to show all markers
     if (filteredReports.length > 0) {
-      const group = new L.FeatureGroup(filteredReports.map(r => r.latitude && r.longitude ? L.marker([r.latitude, r.longitude]) : null).filter(Boolean) as L.Marker[]);
-      if (group.getBounds().isValid()) {
-        mapInstanceRef.current!.fitBounds(group.getBounds().pad(0.1));
+      const markers = filteredReports
+        .filter(r => r.latitude && r.longitude)
+        .map(r => L.marker([r.latitude, r.longitude]));
+      
+      if (markers.length > 0) {
+        const group = new L.FeatureGroup(markers);
+        if (group.getBounds().isValid()) {
+          mapInstanceRef.current!.fitBounds(group.getBounds().pad(0.1));
+        } else if (markers.length === 1) {
+          // If only one marker, center on it
+          mapInstanceRef.current!.setView([markers[0].getLatLng().lat, markers[0].getLatLng().lng], 15);
+        }
       }
+    } else {
+      // If no filtered reports, center on Bennett University
+      mapInstanceRef.current!.setView([28.4509, 77.5847], 13);
     }
   };
 
@@ -259,7 +366,7 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
 
   if (loading) {
     return (
-      <div className={`flex items-center justify-center h-[${height}] bg-muted rounded-lg ${className}`}>
+      <div className={`flex items-center justify-center bg-muted rounded-lg ${className}`} style={{ height }}>
         <Loader2 className="h-4 w-4 animate-spin mr-2" />
         <span className="text-sm text-muted-foreground">Loading map...</span>
       </div>
@@ -268,10 +375,30 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
 
   if (reports.length === 0) {
     return (
-      <div className={`flex items-center justify-center h-[${height}] bg-muted rounded-lg ${className}`}>
-        <div className="text-center">
-          <MapPin className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-          <p className="text-sm text-muted-foreground">No reports with location data found</p>
+      <div className={`space-y-4 ${className}`}>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Filter className="h-5 w-5" />
+              Map Filters
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center py-8">
+              <MapPin className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">No reports with location data found</p>
+              <p className="text-xs text-muted-foreground mt-2">
+                Submit a report with location information to see it on the map
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <div className="bg-muted rounded-lg flex items-center justify-center" style={{ height }}>
+          <div className="text-center">
+            <MapPin className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">Map will appear here when reports are available</p>
+          </div>
         </div>
       </div>
     );
@@ -291,13 +418,24 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
               <Filter className="h-5 w-5" />
               Map Filters
             </CardTitle>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowFilters(!showFilters)}
-            >
-              {showFilters ? "Hide" : "Show"} Filters
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={loadReports}
+                disabled={loading}
+              >
+                <RefreshCw className={`h-4 w-4 mr-1 ${loading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowFilters(!showFilters)}
+              >
+                {showFilters ? "Hide" : "Show"} Filters
+              </Button>
+            </div>
           </div>
         </CardHeader>
         {showFilters && (
@@ -384,11 +522,26 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
       </Card>
 
       {/* Map Container */}
-      <div className="relative" style={{ height }}>
-        <div ref={mapRef} className="h-full w-full rounded-lg overflow-hidden border" />
+      <div className="relative rounded-lg overflow-hidden border" style={{ height }}>
+        <div 
+          ref={mapRef} 
+          className="h-full w-full" 
+          style={{ 
+            minHeight: height,
+            backgroundColor: '#f3f4f6' // Light gray background while loading
+          }}
+        />
         <div className="absolute top-4 right-4 bg-background/90 backdrop-blur-sm rounded-lg p-2 text-xs text-muted-foreground">
           {filteredReports.length} of {reports.length} report{reports.length !== 1 ? 's' : ''} shown
         </div>
+        {!mapReady && (
+          <div className="absolute inset-0 flex items-center justify-center bg-background/80">
+            <div className="text-center">
+              <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">Loading map tiles...</p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

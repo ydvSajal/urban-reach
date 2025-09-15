@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { useNewReportsSubscription, useRealtimeConnectionStatus, useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import ExportDialog from "@/components/ExportDialog";
+import TestDataInserter from "@/components/TestDataInserter";
 
 interface DashboardStats {
   totalReports: number;
@@ -87,10 +88,29 @@ const Dashboard = () => {
 
   const loadDashboardData = async () => {
     try {
-      // Load stats
-      const { data: reportsData, error: reportsError } = await supabase
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Get user's council ID
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("council_id")
+        .eq("user_id", user.id)
+        .single();
+
+      const userCouncilId = profile?.council_id;
+
+      // Load stats - filter by council if user has one, otherwise show all for admin
+      let reportsQuery = supabase
         .from("reports")
         .select("status");
+      
+      if (userCouncilId) {
+        reportsQuery = reportsQuery.eq("council_id", userCouncilId);
+      }
+
+      const { data: reportsData, error: reportsError } = await reportsQuery;
 
       if (reportsError) throw reportsError;
 
@@ -106,12 +126,18 @@ const Dashboard = () => {
         pendingReports: pending,
       });
 
-      // Load recent reports - simple approach without joins
-      const { data: recentData, error: recentError } = await supabase
+      // Load recent reports - filter by council
+      let recentQuery = supabase
         .from("reports")
         .select("id, report_number, title, category, status, created_at, citizen_id")
         .order("created_at", { ascending: false })
         .limit(5);
+      
+      if (userCouncilId) {
+        recentQuery = recentQuery.eq("council_id", userCouncilId);
+      }
+
+      const { data: recentData, error: recentError } = await recentQuery;
 
       if (recentError) {
         console.error("Recent reports error:", recentError);
@@ -259,23 +285,26 @@ const Dashboard = () => {
       </div>
 
       {/* Map and Recent Reports */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Reports Map</CardTitle>
-            <CardDescription>Geographic distribution of reported issues</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ReportsMap height="350px" />
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Reports Map</CardTitle>
+              <CardDescription>Geographic distribution of reported issues</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ReportsMap height="350px" />
+            </CardContent>
+          </Card>
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Reports</CardTitle>
-            <CardDescription>Latest 5 reports submitted to your council</CardDescription>
-          </CardHeader>
-          <CardContent>
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Reports</CardTitle>
+              <CardDescription>Latest 5 reports submitted to your council</CardDescription>
+            </CardHeader>
+            <CardContent>
             <div className="space-y-4">
               {recentReports.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">
@@ -315,8 +344,11 @@ const Dashboard = () => {
                 </Button>
               </div>
             )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+
+          <TestDataInserter />
+        </div>
       </div>
       {showExportDialog && (
         <ExportDialog 

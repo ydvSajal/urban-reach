@@ -71,7 +71,20 @@ const Reports = () => {
 
   const loadReports = async () => {
     try {
-      const { data, error } = await supabase
+      // Get current user and their council
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("council_id")
+        .eq("user_id", user.id)
+        .single();
+
+      const userCouncilId = profile?.council_id;
+
+      // Load reports, filtered by council if user has one
+      let reportsQuery = supabase
         .from("reports")
         .select(`
           *,
@@ -79,6 +92,12 @@ const Reports = () => {
           assigned_worker_id
         `)
         .order("created_at", { ascending: false });
+      
+      if (userCouncilId) {
+        reportsQuery = reportsQuery.eq("council_id", userCouncilId);
+      }
+
+      const { data, error } = await reportsQuery;
 
       if (error) {
         console.error("Reports loading error:", error);
@@ -89,6 +108,14 @@ const Reports = () => {
       // Manually fetch profiles and workers for each report
       const reportsWithRelations = await Promise.all(
         (data || []).map(async (report) => {
+          // Ensure report data has valid values to prevent empty string Select errors
+          const cleanReport = {
+            ...report,
+            category: report.category || 'other',
+            status: report.status || 'pending',
+            priority: report.priority || 'medium'
+          };
+
           const { data: profile } = await supabase
             .from("profiles")
             .select("full_name, email")
@@ -106,7 +133,7 @@ const Reports = () => {
           }
 
           return {
-            ...report,
+            ...cleanReport,
             profiles: profile || { full_name: null, email: null },
             workers: worker
           };
@@ -191,10 +218,10 @@ const Reports = () => {
   const categories = [
     'roads', 'sanitation', 'water_supply', 'electricity', 'public_safety', 
     'parks', 'drainage', 'waste_management', 'street_lights', 'other'
-  ];
+  ].filter(cat => cat && cat.trim() !== '');
 
-  const statuses = ['pending', 'acknowledged', 'in_progress', 'resolved', 'closed'];
-  const priorities = ['low', 'medium', 'high'];
+  const statuses = ['pending', 'acknowledged', 'in_progress', 'resolved', 'closed'].filter(status => status && status.trim() !== '');
+  const priorities = ['low', 'medium', 'high'].filter(priority => priority && priority.trim() !== '');
 
   if (loading) {
     return (
@@ -249,7 +276,7 @@ const Reports = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
-                {statuses.map((status) => (
+                {statuses.filter(status => status && status.trim() !== '').map((status) => (
                   <SelectItem key={status} value={status}>
                     {status.replace('_', ' ').toUpperCase()}
                   </SelectItem>
@@ -263,7 +290,7 @@ const Reports = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Categories</SelectItem>
-                {categories.map((category) => (
+                {categories.filter(category => category && category.trim() !== '').map((category) => (
                   <SelectItem key={category} value={category}>
                     {category.replace('_', ' ').toUpperCase()}
                   </SelectItem>
@@ -277,7 +304,7 @@ const Reports = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Priorities</SelectItem>
-                {priorities.map((priority) => (
+                {priorities.filter(priority => priority && priority.trim() !== '').map((priority) => (
                   <SelectItem key={priority} value={priority}>
                     {priority.toUpperCase()}
                   </SelectItem>
