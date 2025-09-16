@@ -59,16 +59,40 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
     
-    const map = L.map(mapRef.current).setView([28.4645, 77.5173], 12);
-    
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      maxZoom: 19,
-    }).addTo(map);
-    
-    mapInstanceRef.current = map;
+    // Use a timeout to ensure the container has proper dimensions
+    const timeout = setTimeout(() => {
+      if (!mapRef.current) return;
+      
+      try {
+        console.log('Initializing map with container:', mapRef.current);
+        
+        const map = L.map(mapRef.current, {
+          zoomControl: true,
+          attributionControl: true
+        }).setView([28.4645, 77.5173], 12);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+          maxZoom: 19,
+        }).addTo(map);
+        
+        mapInstanceRef.current = map;
+        console.log('Map initialized successfully');
+        
+        // Force a size invalidation after a short delay
+        setTimeout(() => {
+          if (mapInstanceRef.current) {
+            mapInstanceRef.current.invalidateSize();
+          }
+        }, 100);
+        
+      } catch (error) {
+        console.error('Error initializing map:', error);
+      }
+    }, 100);
 
     return () => {
+      clearTimeout(timeout);
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
@@ -226,14 +250,7 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
     );
   }
 
-  if (reports.length === 0) {
-    return (
-      <div className={`text-center py-8 ${className}`} style={{ height }}>
-        <MapPin className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-        <p className="text-sm text-muted-foreground">No reports with location data found</p>
-      </div>
-    );
-  }
+  // Show empty map even when no reports
 
   const uniqueStatuses = [...new Set(reports.map(r => r.status))].filter(Boolean);
   const uniqueCategories = [...new Set(reports.map(r => r.category))].filter(Boolean);
@@ -241,95 +258,97 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
 
   return (
     <div className={`space-y-4 ${className}`}>
-      {/* Filters Section */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Filter className="h-5 w-5" />
-              Map Filters
-            </CardTitle>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowFilters(!showFilters)}
-              >
-                <Filter className="h-4 w-4 mr-2" />
-                {showFilters ? "Hide Filters" : "Show Filters"}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={loadReports}
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh
-              </Button>
+      {/* Filters Section - Only show if we have reports */}
+      {reports.length > 0 && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Filter className="h-5 w-5" />
+                Map Filters
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowFilters(!showFilters)}
+                >
+                  <Filter className="h-4 w-4 mr-2" />
+                  {showFilters ? "Hide Filters" : "Show Filters"}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={loadReports}
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh
+                </Button>
+              </div>
             </div>
-          </div>
-        </CardHeader>
-        {showFilters && (
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Status</label>
-                <Select value={filters.status} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value }))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Statuses</SelectItem>
-                    {uniqueStatuses.map((status) => (
-                      <SelectItem key={status} value={status}>
-                        {status.replace('_', ' ').toUpperCase()}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+          </CardHeader>
+          {showFilters && (
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Status</label>
+                  <Select value={filters.status} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value }))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      {uniqueStatuses.map((status) => (
+                        <SelectItem key={status} value={status}>
+                          {status.replace('_', ' ').toUpperCase()}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Category</label>
+                  <Select value={filters.category} onValueChange={(value) => setFilters(prev => ({ ...prev, category: value }))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem>
+                      {uniqueCategories.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category.replace('_', ' ').toUpperCase()}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Priority</label>
+                  <Select value={filters.priority} onValueChange={(value) => setFilters(prev => ({ ...prev, priority: value }))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Priorities</SelectItem>
+                      {uniquePriorities.map((priority) => (
+                        <SelectItem key={priority} value={priority}>
+                          {priority.toUpperCase()}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Category</label>
-                <Select value={filters.category} onValueChange={(value) => setFilters(prev => ({ ...prev, category: value }))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Categories</SelectItem>
-                    {uniqueCategories.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category.replace('_', ' ').toUpperCase()}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="mt-4 text-sm text-muted-foreground">
+                Showing {filteredReports.length} of {reports.length} reports
               </div>
-              
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Priority</label>
-                <Select value={filters.priority} onValueChange={(value) => setFilters(prev => ({ ...prev, priority: value }))}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Priorities</SelectItem>
-                    {uniquePriorities.map((priority) => (
-                      <SelectItem key={priority} value={priority}>
-                        {priority.toUpperCase()}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            
-            <div className="mt-4 text-sm text-muted-foreground">
-              Showing {filteredReports.length} of {reports.length} reports
-            </div>
-          </CardContent>
-        )}
-      </Card>
+            </CardContent>
+          )}
+        </Card>
+      )}
 
       {/* Map Section */}
       <div className="relative bg-background border rounded-lg overflow-hidden" style={{ height }}>
@@ -338,6 +357,15 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
           className="w-full h-full"
           style={{ height: '100%', minHeight: '400px' }}
         />
+        {reports.length === 0 && !loading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-background/90 backdrop-blur-sm">
+            <div className="text-center">
+              <MapPin className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+              <p className="text-sm text-muted-foreground">No reports with location data found</p>
+              <p className="text-xs text-muted-foreground mt-1">Create some sample reports to see them on the map</p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
