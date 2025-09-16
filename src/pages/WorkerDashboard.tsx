@@ -7,17 +7,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { 
-  MapPin, 
   Clock, 
   CheckCircle, 
   AlertTriangle,
   Navigation,
-  List,
   Calendar,
-  ArrowRight
+  ArrowRight,
+  ClipboardList
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import WorkerMap from "@/components/WorkerMap";
 import { Link } from "react-router-dom";
 
 interface WorkerProfile {
@@ -232,148 +230,125 @@ const WorkerDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Mobile-First Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-4">
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
-                Welcome, {workerProfile.full_name}
-              </h1>
-              <p className="text-sm text-gray-600">Your daily assignments</p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Link 
-                to="/worker/assignments" 
-                className="flex items-center space-x-2 bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
-              >
-                <List className="h-4 w-4" />
-                <span className="hidden sm:inline">My Assignments</span>
-              </Link>
-            </div>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      {/* Welcome Header */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">
+              Welcome, {workerProfile.full_name}
+            </h1>
+            <p className="text-muted-foreground">Your daily assignments</p>
           </div>
+          <Link 
+            to="/worker/assignments" 
+            className="flex items-center space-x-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90"
+          >
+            <ClipboardList className="h-4 w-4" />
+            <span className="hidden sm:inline">My Assignments</span>
+          </Link>
         </div>
       </div>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Task Summary Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          <Card className="text-center">
-            <CardContent className="pt-4 pb-4">
-              <div className="text-2xl font-bold text-blue-600">{stats.newAssignments}</div>
-              <div className="text-sm text-gray-600 flex items-center justify-center mt-1">
-                <Clock className="h-4 w-4 mr-1" />
-                New Assignments
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="text-center">
-            <CardContent className="pt-4 pb-4">
-              <div className="text-2xl font-bold text-orange-600">{stats.inProgress}</div>
-              <div className="text-sm text-gray-600 flex items-center justify-center mt-1">
-                <AlertTriangle className="h-4 w-4 mr-1" />
-                In Progress
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card className="text-center">
-            <CardContent className="pt-4 pb-4">
-              <div className="text-2xl font-bold text-green-600">{stats.completedToday}</div>
-              <div className="text-sm text-gray-600 flex items-center justify-center mt-1">
-                <CheckCircle className="h-4 w-4 mr-1" />
-                Completed Today
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Assignments Map */}
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <MapPin className="h-5 w-5 text-blue-600" />
-              <span>Your Assignment Locations</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="h-80 bg-gray-100 rounded-lg flex items-center justify-center">
-              <WorkerMap reports={reports.filter(r => r.latitude && r.longitude)} />
+      {/* Task Summary Stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <Card className="text-center">
+          <CardContent className="pt-6 pb-6">
+            <div className="text-3xl font-bold text-primary">{stats.newAssignments}</div>
+            <div className="text-sm text-muted-foreground flex items-center justify-center mt-2">
+              <Clock className="h-4 w-4 mr-1" />
+              New Assignments
             </div>
           </CardContent>
         </Card>
+        
+        <Card className="text-center">
+          <CardContent className="pt-6 pb-6">
+            <div className="text-3xl font-bold text-orange-600">{stats.inProgress}</div>
+            <div className="text-sm text-muted-foreground flex items-center justify-center mt-2">
+              <AlertTriangle className="h-4 w-4 mr-1" />
+              In Progress
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="text-center">
+          <CardContent className="pt-6 pb-6">
+            <div className="text-3xl font-bold text-green-600">{stats.completedToday}</div>
+            <div className="text-sm text-muted-foreground flex items-center justify-center mt-2">
+              <CheckCircle className="h-4 w-4 mr-1" />
+              Completed Today
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
-        {/* Upcoming Tasks */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Calendar className="h-5 w-5 text-blue-600" />
-                <span>Next Priority Tasks</span>
-              </div>
-              <Link 
-                to="/worker/assignments"
-                className="text-sm text-blue-600 hover:text-blue-800 flex items-center space-x-1"
-              >
-                <span>View All</span>
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {upcomingTasks.length === 0 ? (
-              <div className="text-center py-8">
-                <CheckCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900">All caught up!</h3>
-                <p className="text-gray-600">No pending assignments at the moment.</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {upcomingTasks.map((task) => (
-                  <div key={task.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-start justify-between space-x-4">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-2">
-                          <h3 className="font-semibold text-gray-900">{task.title}</h3>
-                          <Badge className={getPriorityColor(task.priority)}>
-                            {task.priority.toUpperCase()}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-gray-600 mb-2 line-clamp-2">{task.description}</p>
-                        <div className="flex items-center space-x-4 text-xs text-gray-500">
-                          <div className="flex items-center space-x-1">
-                            <MapPin className="h-3 w-3" />
-                            <span>{task.location_address}</span>
-                          </div>
-                          <div className="flex items-center space-x-1">
-                            <Clock className="h-3 w-3" />
-                            <span>{formatDistanceToNow(new Date(task.created_at), { addSuffix: true })}</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex flex-col space-y-2">
-                        <Badge className={getStatusColor(task.status)}>
-                          {task.status.replace('_', ' ')}
+      {/* Upcoming Tasks */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Calendar className="h-5 w-5 text-primary" />
+              <span>Next Priority Tasks</span>
+            </div>
+            <Link 
+              to="/worker/assignments"
+              className="text-sm text-primary hover:text-primary/80 flex items-center space-x-1"
+            >
+              <span>View All</span>
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {upcomingTasks.length === 0 ? (
+            <div className="text-center py-8">
+              <CheckCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-foreground">All caught up!</h3>
+              <p className="text-muted-foreground">No pending assignments at the moment.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {upcomingTasks.map((task) => (
+                <div key={task.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                  <div className="flex items-start justify-between space-x-4">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <h3 className="font-semibold text-foreground">{task.title}</h3>
+                        <Badge className={getPriorityColor(task.priority)}>
+                          {task.priority.toUpperCase()}
                         </Badge>
-                        <Button 
-                          size="sm"
-                          onClick={() => openInMaps(task.location_address, task.latitude || undefined, task.longitude || undefined)}
-                          className="bg-blue-600 hover:bg-blue-700 text-white"
-                        >
-                          <Navigation className="h-4 w-4 mr-1" />
-                          Navigate
-                        </Button>
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{task.description}</p>
+                      <div className="flex items-center space-x-4 text-xs text-muted-foreground">
+                        <div className="flex items-center space-x-1">
+                          <span>📍 {task.location_address}</span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <Clock className="h-3 w-3" />
+                          <span>{formatDistanceToNow(new Date(task.created_at), { addSuffix: true })}</span>
+                        </div>
                       </div>
                     </div>
+                    <div className="flex flex-col space-y-2">
+                      <Badge className={getStatusColor(task.status)}>
+                        {task.status.replace('_', ' ')}
+                      </Badge>
+                      <Button 
+                        size="sm"
+                        onClick={() => openInMaps(task.location_address, task.latitude || undefined, task.longitude || undefined)}
+                        className="bg-primary hover:bg-primary/90"
+                      >
+                        <Navigation className="h-4 w-4 mr-1" />
+                        Navigate
+                      </Button>
+                    </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };

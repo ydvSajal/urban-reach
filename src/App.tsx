@@ -9,6 +9,7 @@ import { User, Session } from "@supabase/supabase-js";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Layout from "./components/Layout";
 import CitizenLayout from "./components/CitizenLayout";
+import WorkerLayout from "./components/WorkerLayout";
 import { NotificationProvider } from "./components/NotificationProvider";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
@@ -178,9 +179,9 @@ const App = () => {
                     {/* Worker Routes */}
                     {userRole === 'worker' && (
                       <>
-                        <Route path="/worker-dashboard" element={<Layout userRole={userRole}><WorkerDashboard /></Layout>} />
-                        <Route path="/reports/:id" element={<Layout userRole={userRole}><ReportDetail /></Layout>} />
-                        <Route path="/notifications" element={<Layout userRole={userRole}><NotificationSettings /></Layout>} />
+                        <Route path="/worker-dashboard" element={<WorkerLayout><WorkerDashboard /></WorkerLayout>} />
+                        <Route path="/reports/:id" element={<WorkerLayout><ReportDetail /></WorkerLayout>} />
+                        <Route path="/notifications" element={<WorkerLayout><NotificationSettings /></WorkerLayout>} />
                       </>
                     )}
 
