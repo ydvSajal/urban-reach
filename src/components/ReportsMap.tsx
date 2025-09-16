@@ -79,8 +79,15 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
       const container = mapRef.current;
       const rect = container.getBoundingClientRect();
       
-      // Only initialize if container has dimensions
-      if (rect.width === 0 || rect.height === 0) {
+      // Better dimension checking - handle empty rect objects
+      const hasValidDimensions = rect && 
+        typeof rect.width === 'number' && 
+        typeof rect.height === 'number' && 
+        rect.width > 0 && 
+        rect.height > 0;
+      
+      if (!hasValidDimensions) {
+        console.log('Container not ready, retrying...', rect);
         setTimeout(initializeMap, 100);
         return;
       }
@@ -140,10 +147,39 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
       mapInstanceRef.current = map;
     };
     
-    // Start initialization
+    // Start initialization immediately
     initializeMap();
+    
+    // Also add a fallback timer in case dimensions never properly load
+    const fallbackTimer = setTimeout(() => {
+      if (!mapInstanceRef.current && mapRef.current) {
+        console.log('Fallback initialization triggered');
+        // Force initialization even if dimensions aren't perfect
+        const container = mapRef.current;
+        const map = L.map(container, {
+          preferCanvas: false,
+          zoomControl: true,
+          attributionControl: true,
+          renderer: L.svg()
+        }).setView([28.4645, 77.5173], 14);
+        
+        const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+          maxZoom: 19
+        });
+        
+        tileLayer.addTo(map);
+        mapInstanceRef.current = map;
+        
+        setTimeout(() => {
+          map.invalidateSize();
+          setMapReady(true);
+        }, 200);
+      }
+    }, 2000);
 
     return () => {
+      clearTimeout(fallbackTimer);
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
