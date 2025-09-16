@@ -48,17 +48,24 @@ const App = () => {
 
   const fetchUserProfile = async (userId: string): Promise<UserProfile | null> => {
     try {
+      console.log("Fetching user profile for userId:", userId);
       const { data: profile, error } = await supabase
         .from("profiles")
         .select("role, council_id, full_name")
         .eq("user_id", userId)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error("Error fetching user profile:", error);
         return null;
       }
 
+      if (!profile) {
+        console.log("No profile found for user:", userId);
+        return null;
+      }
+
+      console.log("Profile fetched successfully:", profile);
       return profile as UserProfile;
     } catch (error) {
       console.error("Error fetching user profile:", error);
@@ -68,27 +75,33 @@ const App = () => {
 
   useEffect(() => {
     const handleAuthStateChange = async (session: Session | null) => {
+      console.log("Auth state changed:", session?.user?.id ? "User logged in" : "User logged out");
       setSession(session);
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        // Fetch profile immediately, with retries to handle timing issues
-        let retries = 3;
-        let profile = null;
-        
-        while (retries > 0 && !profile) {
-          profile = await fetchUserProfile(session.user.id);
-          if (!profile) {
-            retries--;
-            if (retries > 0) {
-              await new Promise(resolve => setTimeout(resolve, 1000));
-            }
-          }
+        console.log("Fetching profile for user:", session.user.id);
+        // Fetch profile with timeout to prevent infinite loading
+        const timeoutPromise = new Promise<null>((_, reject) => {
+          setTimeout(() => reject(new Error('Profile fetch timeout')), 10000);
+        });
+
+        try {
+          const profile = await Promise.race([
+            fetchUserProfile(session.user.id),
+            timeoutPromise
+          ]);
+          
+          console.log("Profile result:", profile);
+          setUserProfile(profile);
+        } catch (error) {
+          console.error("Profile fetch failed:", error);
+          setUserProfile(null);
         }
         
-        setUserProfile(profile);
         setLoading(false);
       } else {
+        console.log("No user session, clearing profile");
         setUserProfile(null);
         setLoading(false);
       }
@@ -119,15 +132,40 @@ const App = () => {
     }
   };
 
-  if (loading || (user && !userProfile)) {
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading application...</p>
+        </div>
       </div>
     );
   }
 
+  // If user exists but no profile, redirect to create profile or show error
   const userRole = userProfile?.role || 'citizen';
+
+  if (user && !userProfile) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="max-w-md w-full mx-4 text-center">
+          <div className="bg-card border rounded-lg p-6">
+            <h2 className="text-lg font-semibold mb-4">Profile Setup Required</h2>
+            <p className="text-muted-foreground mb-4">
+              Your account needs to be set up. Please contact your administrator or try logging in again.
+            </p>
+            <button
+              onClick={() => supabase.auth.signOut()}
+              className="w-full bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-md"
+            >
+              Sign Out & Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <ErrorBoundary>
