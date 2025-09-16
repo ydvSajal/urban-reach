@@ -28,63 +28,79 @@ import MobilePerformanceMonitor from "./components/MobilePerformanceMonitor";
 
 const queryClient = new QueryClient();
 
+type UserRole = 'admin' | 'worker' | 'citizen' | '';
+
+interface UserProfile {
+  role: UserRole;
+  council_id: string | null;
+  full_name: string | null;
+}
+
 const App = () => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [userRole, setUserRole] = useState<string>("");
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchRole = async (userId: string, email: string) => {
-      // Check if it's a Bennett email or specific admin email for testing
-      if (email === "sajalkumar1765@gmail.com" || email?.includes("@bennett.edu.in")) {
-        setUserRole("admin");
-        return;
-      }
-      const { data: profile } = await supabase
+  const fetchUserProfile = async (userId: string): Promise<UserProfile | null> => {
+    try {
+      const { data: profile, error } = await supabase
         .from("profiles")
-        .select("role")
+        .select("role, council_id, full_name")
         .eq("user_id", userId)
         .single();
-      setUserRole(profile?.role || "citizen");
+
+      if (error) {
+        console.error("Error fetching user profile:", error);
+        return null;
+      }
+
+      return profile as UserProfile;
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    const handleAuthStateChange = async (session: Session | null) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      
+      if (session?.user) {
+        const profile = await fetchUserProfile(session.user.id);
+        setUserProfile(profile);
+      } else {
+        setUserProfile(null);
+      }
+      
+      setLoading(false);
     };
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        if (session.user.email === "sajalkumar1765@gmail.com" || session.user.email?.includes("@bennett.edu.in")) {
-          setUserRole("admin");
-          setLoading(false);
-        } else {
-          setTimeout(() => {
-            fetchRole(session.user.id, session.user.email || "").finally(() => setLoading(false));
-          }, 0);
-        }
-      } else {
-        setUserRole("");
-        setLoading(false);
-      }
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      await handleAuthStateChange(session);
     });
 
+    // Check initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        if (session.user.email === "sajalkumar1765@gmail.com" || session.user.email?.includes("@bennett.edu.in")) {
-          setUserRole("admin");
-          setLoading(false);
-        } else {
-          fetchRole(session.user.id, session.user.email || "").finally(() => setLoading(false));
-        }
-      } else {
-        setUserRole("");
-        setLoading(false);
-      }
+      handleAuthStateChange(session);
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const getDefaultRoute = (role: UserRole): string => {
+    switch (role) {
+      case 'admin':
+        return '/dashboard';
+      case 'worker':
+        return '/worker-dashboard';
+      case 'citizen':
+      default:
+        return '/citizen-dashboard';
+    }
+  };
 
   if (loading) {
     return (
@@ -93,6 +109,8 @@ const App = () => {
       </div>
     );
   }
+
+  const userRole = userProfile?.role || 'citizen';
 
   return (
     <ErrorBoundary>
@@ -104,97 +122,81 @@ const App = () => {
             <MobilePerformanceMonitor />
             <BrowserRouter>
               <Routes>
-                <Route path="/" element={user ? (
-                  userRole === "admin" ? <Navigate to="/dashboard" /> :
-                  userRole === "worker" ? <Navigate to="/worker-dashboard" /> :
-                  <Navigate to="/citizen-dashboard" />
-                ) : <Index />} />
-                <Route path="/auth" element={!user ? <Auth userType="citizen" onSuccess={() => window.location.href = '/'} /> : (
-                  userRole === "admin" ? <Navigate to="/dashboard" /> :
-                  userRole === "worker" ? <Navigate to="/worker-dashboard" /> :
-                  <Navigate to="/citizen-dashboard" />
-                )} />
-
-                {/* Admin Routes */}
-                {user && (userRole === "admin" || (session?.user?.email === "sajalkumar1765@gmail.com") || (session?.user?.email?.includes("@bennett.edu.in"))) && (
-                  <Route path="/dashboard" element={<Layout userRole={userRole}><Dashboard /></Layout>} />
-                )}
-                {user && (userRole === "admin" || (session?.user?.email === "sajalkumar1765@gmail.com") || (session?.user?.email?.includes("@bennett.edu.in"))) && (
-                  <Route path="/reports" element={<Layout userRole={userRole}><Reports /></Layout>} />
-                )}
-                {user && (userRole === "admin" || (session?.user?.email === "sajalkumar1765@gmail.com") || (session?.user?.email?.includes("@bennett.edu.in"))) && (
-                  <Route path="/reports/:id" element={<Layout userRole={userRole}><ReportDetail /></Layout>} />
-                )}
-                {user && (userRole === "admin" || (session?.user?.email === "sajalkumar1765@gmail.com") || (session?.user?.email?.includes("@bennett.edu.in"))) && (
-                  <Route path="/workers" element={<Layout userRole={userRole}><Workers /></Layout>} />
-                )}
-                {user && (userRole === "admin" || (session?.user?.email === "sajalkumar1765@gmail.com") || (session?.user?.email?.includes("@bennett.edu.in"))) && (
-                  <Route path="/analytics" element={<Layout userRole={userRole}><Analytics /></Layout>} />
-                )}
-                {user && (userRole === "admin" || (session?.user?.email === "sajalkumar1765@gmail.com") || (session?.user?.email?.includes("@bennett.edu.in"))) && (
-                  <Route path="/maps" element={<Layout userRole={userRole}><Maps /></Layout>} />
-                )}
-                {user && (userRole === "admin" || (session?.user?.email === "sajalkumar1765@gmail.com") || (session?.user?.email?.includes("@bennett.edu.in"))) && (
-                  <Route path="/notifications" element={<Layout userRole={userRole}><NotificationSettings /></Layout>} />
-                )}
-
-                {/* Worker Routes */}
-                {user && (userRole === "worker" || (session?.user?.email === "sajalkumar1765@gmail.com")) && (
-                  <Route path="/worker-dashboard" element={<Layout userRole={userRole}><WorkerDashboard /></Layout>} />
-                )}
-                {user && (userRole === "worker" || (session?.user?.email === "sajalkumar1765@gmail.com")) && (
-                  <Route path="/reports/:id" element={<Layout userRole={userRole}><ReportDetail /></Layout>} />
-                )}
-                {user && (userRole === "worker" || (session?.user?.email === "sajalkumar1765@gmail.com")) && (
-                  <Route path="/notifications" element={<Layout userRole={userRole}><NotificationSettings /></Layout>} />
-                )}
-
-                {/* Citizen Routes */}
-                {user && ((userRole === "citizen" || userRole === "" || (session?.user?.email === "sajalkumar1765@gmail.com"))) && (
-                  <Route path="/citizen-dashboard" element={<CitizenLayout><CitizenDashboard /></CitizenLayout>} />
-                )}
-                {user && ((userRole === "citizen" || userRole === "" || (session?.user?.email === "sajalkumar1765@gmail.com"))) && (
-                  <Route path="/submit-report" element={<CitizenLayout><SubmitReport /></CitizenLayout>} />
-                )}
-                {user && ((userRole === "citizen" || userRole === "" || (session?.user?.email === "sajalkumar1765@gmail.com"))) && (
-                  <Route path="/my-reports" element={<CitizenLayout><MyReports /></CitizenLayout>} />
-                )}
-                {user && ((userRole === "citizen" || userRole === "" || (session?.user?.email === "sajalkumar1765@gmail.com"))) && (
-                  <Route path="/reports/:id" element={<CitizenLayout><ReportDetail /></CitizenLayout>} />
-                )}
-                {user && ((userRole === "citizen" || userRole === "" || (session?.user?.email === "sajalkumar1765@gmail.com"))) && (
-                  <Route path="/notifications" element={<CitizenLayout><NotificationSettings /></CitizenLayout>} />
-                )}
-
-                {/* Auth routes */}
+                {/* Public Routes */}
+                <Route 
+                  path="/" 
+                  element={user ? <Navigate to={getDefaultRoute(userRole)} replace /> : <Index />} 
+                />
+                
+                {/* Auth Routes */}
                 <Route 
                   path="/auth/admin" 
-                  element={
-                    <Auth 
-                      userType="admin" 
-                      onSuccess={() => window.location.href = '/dashboard'} 
-                    />
-                  } 
+                  element={!user ? <Auth userType="admin" onSuccess={() => window.location.reload()} /> : <Navigate to="/dashboard" replace />} 
                 />
                 <Route 
                   path="/auth/worker" 
-                  element={
-                    <Auth 
-                      userType="worker" 
-                      onSuccess={() => window.location.href = '/worker-dashboard'} 
-                    />
-                  } 
+                  element={!user ? <Auth userType="worker" onSuccess={() => window.location.reload()} /> : <Navigate to="/worker-dashboard" replace />} 
                 />
                 <Route 
                   path="/auth/citizen" 
-                  element={
-                    <Auth 
-                      userType="citizen" 
-                      onSuccess={() => window.location.href = '/citizen-dashboard'} 
-                    />
-                  } 
+                  element={!user ? <Auth userType="citizen" onSuccess={() => window.location.reload()} /> : <Navigate to="/citizen-dashboard" replace />} 
                 />
-                <Route path="/auth" element={<Auth userType="citizen" onSuccess={() => window.location.href = '/'} />} />
+                <Route 
+                  path="/auth" 
+                  element={!user ? <Auth userType="citizen" onSuccess={() => window.location.reload()} /> : <Navigate to={getDefaultRoute(userRole)} replace />} 
+                />
+
+                {/* Protected Routes */}
+                {user && (
+                  <>
+                    {/* Admin Routes */}
+                    {userRole === 'admin' && (
+                      <>
+                        <Route path="/dashboard" element={<Layout userRole={userRole}><Dashboard /></Layout>} />
+                        <Route path="/reports" element={<Layout userRole={userRole}><Reports /></Layout>} />
+                        <Route path="/reports/:id" element={<Layout userRole={userRole}><ReportDetail /></Layout>} />
+                        <Route path="/workers" element={<Layout userRole={userRole}><Workers /></Layout>} />
+                        <Route path="/analytics" element={<Layout userRole={userRole}><Analytics /></Layout>} />
+                        <Route path="/maps" element={<Layout userRole={userRole}><Maps /></Layout>} />
+                        <Route path="/notifications" element={<Layout userRole={userRole}><NotificationSettings /></Layout>} />
+                      </>
+                    )}
+
+                    {/* Worker Routes */}
+                    {userRole === 'worker' && (
+                      <>
+                        <Route path="/worker-dashboard" element={<Layout userRole={userRole}><WorkerDashboard /></Layout>} />
+                        <Route path="/reports/:id" element={<Layout userRole={userRole}><ReportDetail /></Layout>} />
+                        <Route path="/notifications" element={<Layout userRole={userRole}><NotificationSettings /></Layout>} />
+                      </>
+                    )}
+
+                    {/* Citizen Routes */}
+                    {userRole === 'citizen' && (
+                      <>
+                        <Route path="/citizen-dashboard" element={<CitizenLayout><CitizenDashboard /></CitizenLayout>} />
+                        <Route path="/submit-report" element={<CitizenLayout><SubmitReport /></CitizenLayout>} />
+                        <Route path="/my-reports" element={<CitizenLayout><MyReports /></CitizenLayout>} />
+                        <Route path="/reports/:id" element={<CitizenLayout><ReportDetail /></CitizenLayout>} />
+                        <Route path="/notifications" element={<CitizenLayout><NotificationSettings /></CitizenLayout>} />
+                      </>
+                    )}
+
+                    {/* Role-based redirects for unauthorized access */}
+                    <Route 
+                      path="/dashboard" 
+                      element={userRole !== 'admin' ? <Navigate to={getDefaultRoute(userRole)} replace /> : null} 
+                    />
+                    <Route 
+                      path="/worker-dashboard" 
+                      element={userRole !== 'worker' ? <Navigate to={getDefaultRoute(userRole)} replace /> : null} 
+                    />
+                    <Route 
+                      path="/citizen-dashboard" 
+                      element={userRole !== 'citizen' ? <Navigate to={getDefaultRoute(userRole)} replace /> : null} 
+                    />
+                  </>
+                )}
 
                 {/* 404 fallback */}
                 <Route path="*" element={<NotFound />} />

@@ -4,14 +4,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Loader2, Building2, Mail, AlertCircle, CheckCircle, RefreshCw, Clock, Shield, Zap } from "lucide-react";
-import PasswordReset from "./PasswordReset";
-import { sendOTP, verifyOTP, signInAdmin, rateLimitUtils, ADMIN_EMAIL } from "@/lib/auth-config";
-import { classifyError, getRecoveryActions } from "@/lib/error-handling";
+import { Loader2, Building2, Mail, AlertCircle, CheckCircle, RefreshCw, Shield, Users, UserCheck } from "lucide-react";
+import { sendOTP, verifyOTP, rateLimitUtils } from "@/lib/auth-config";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 
 interface AuthFormProps {
@@ -20,595 +17,340 @@ interface AuthFormProps {
 }
 
 const AuthForm = ({ onSuccess, userType }: AuthFormProps) => {
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [email, setEmail] = useState("");
+  const [otpToken, setOtpToken] = useState("");
+  const [isOtpSent, setIsOtpSent] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [showPasswordReset, setShowPasswordReset] = useState(false);
-  const [showPhoneAuth, setShowPhoneAuth] = useState(false);
-  const [showOtpVerification, setShowOtpVerification] = useState(false);
-  const [currentStep, setCurrentStep] = useState<'email' | 'otp'>('email');
-  const [authMethod] = useState<'email' | 'phone'>('email');
-  
-  const [formData, setFormData] = useState({
-    email: "",
-    otp: "",
-    fullName: "",
-    phone: "",
-    role: "citizen" as "citizen" | "worker" | "admin",
-    councilId: "",
-  });
-
-  // Additional state variables
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [error, setError] = useState("");
   const [resendCooldown, setResendCooldown] = useState(0);
-  const [timeRemaining, setTimeRemaining] = useState(0);
-  const [otpError, setOtpError] = useState("");
-  const [otpExpiryTime, setOtpExpiryTime] = useState<number | null>(null);
-  const [attemptCount, setAttemptCount] = useState(0);
-  const [otpSuccess, setOtpSuccess] = useState(false);
-  const [isResending, setIsResending] = useState(false);
-  const [recoveryActions, setRecoveryActions] = useState<string[]>([]);
-  const [councils, setCouncils] = useState<Array<{id: string, name: string}>>([]);
-  const otpInputRef = useRef<HTMLInputElement>(null);
+  const [remainingAttempts, setRemainingAttempts] = useState(3);
+  const isOnline = useNetworkStatus();
+  const cooldownInterval = useRef<NodeJS.Timeout>();
 
-  const networkStatus = useNetworkStatus();
-
-  // Cooldown timer effect
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (resendCooldown > 0) {
-      interval = setInterval(() => {
-        setResendCooldown((prev) => prev - 1);
-      }, 1000);
+    return () => {
+      if (cooldownInterval.current) {
+        clearInterval(cooldownInterval.current);
+      }
+    };
+  }, []);
+
+  const startCooldown = (seconds: number) => {
+    setResendCooldown(seconds);
+    if (cooldownInterval.current) {
+      clearInterval(cooldownInterval.current);
     }
-    return () => clearInterval(interval);
-  }, [resendCooldown]);
-
-  // OTP expiry timer effect
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (otpExpiryTime && timeRemaining > 0) {
-      interval = setInterval(() => {
-        const now = Date.now();
-        const remaining = Math.max(0, Math.floor((otpExpiryTime - now) / 1000));
-        setTimeRemaining(remaining);
-        
-        if (remaining === 0) {
-          setOtpError("OTP has expired. Please request a new one.");
+    cooldownInterval.current = setInterval(() => {
+      setResendCooldown((prev) => {
+        if (prev <= 1) {
+          if (cooldownInterval.current) {
+            clearInterval(cooldownInterval.current);
+          }
+          return 0;
         }
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [otpExpiryTime, timeRemaining]);
-
-  // Reset attempt count on successful OTP
-  useEffect(() => {
-    if (otpSuccess) {
-      setAttemptCount(0);
-    }
-  }, [otpSuccess]);
-
-  // Auto-focus OTP input
-  useEffect(() => {
-    if (currentStep === 'otp' && otpInputRef.current) {
-      otpInputRef.current.focus();
-    }
-  }, [currentStep]);
-
-  // Resend cooldown effect
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (resendCooldown > 0) {
-      interval = setInterval(() => {
-        setResendCooldown(prev => prev - 1);
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [resendCooldown]);
-
-  const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!networkStatus.online) {
-      toast({
-        title: "Network Error",
-        description: "Please check your internet connection and try again.",
-        variant: "destructive",
+        return prev - 1;
       });
-      return;
-    }
-
-    if (currentStep === 'email') {
-      await handleSendOTP();
-    } else {
-      await handleVerifyOTP();
-    }
+    }, 1000);
   };
 
   const handleSendOTP = async () => {
-    if (!formData.email.trim()) {
-      toast({
-        title: "Email required",
-        description: "Please enter your email address",
-        variant: "destructive",
-      });
+    if (!email) {
+      setError("Please enter your email address");
       return;
     }
 
-    if (userType === 'admin' && !formData.email.endsWith('@bennett.edu.in')) {
-      toast({
-        title: "Invalid email",
-        description: "Admin access requires a @bennett.edu.in email address",
-        variant: "destructive",
-      });
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError("Please enter a valid email address");
+      return;
+    }
+
+    // Role-specific email validation
+    if (userType === 'admin' && !email.includes('@bennett.edu.in') && email !== 'sajalkumar1765@gmail.com') {
+      setError("Admin access is restricted to Bennett University emails only");
+      return;
+    }
+
+    if (!isOnline) {
+      setError("You are offline. Please check your internet connection.");
+      return;
+    }
+
+    const rateLimitCheck = rateLimitUtils.canSendOTP(email);
+    if (!rateLimitCheck.allowed) {
+      const minutes = Math.ceil((rateLimitCheck.remainingTime || 0) / 60000);
+      setError(`Please wait ${minutes} minute(s) before requesting another OTP`);
       return;
     }
 
     setLoading(true);
+    setError("");
+
     try {
-      const result = await sendOTP(formData.email);
-      
-      if (result.success) {
-        setCurrentStep('otp');
-        setShowOtpVerification(true);
-        setOtpExpiryTime(Date.now() + (10 * 60 * 1000)); // 10 minutes
-        setTimeRemaining(600);
-        setResendCooldown(60);
-        setOtpError("");
-        setRecoveryActions([]);
-        
-        toast({
-          title: "OTP sent successfully",
-          description: `Check your ${authMethod} for the 6-digit code`,
-        });
-      } else {
-        toast({
-          title: "Failed to send OTP",
-          description: "Please try again",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error('Auth error:', error);
-      const message = error instanceof Error ? error.message : String(error);
-      toast({
-        title: "Authentication failed",
-        description: message,
-        variant: "destructive",
+      await sendOTP(email, { 
+        isSignUp,
+        userData: {
+          role: userType,
+          council_id: '00000000-0000-0000-0000-000000000001' // Bennett University
+        }
       });
+      
+      setIsOtpSent(true);
+      startCooldown(60);
+      setRemainingAttempts(3);
+      
+      toast({
+        title: "OTP sent successfully",
+        description: `Please check your email for the verification code`,
+      });
+    } catch (error: any) {
+      console.error("Error sending OTP:", error);
+      setError(error.message || "Failed to send OTP. Please try again.");
     } finally {
       setLoading(false);
     }
-  };
-
-  const loadCouncils = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("councils")
-        .select("id, name");
-      
-      if (error) throw error;
-      setCouncils(data || []);
-    } catch (error) {
-      console.error("Error loading councils:", error);
-    }
-  };
-
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    // Implement sign up logic here
-    console.log("Sign up functionality to be implemented");
   };
 
   const handleVerifyOTP = async () => {
-    if (!formData.otp.trim()) {
-      toast({
-        title: "OTP required",
-        description: "Please enter the 6-digit code",
-        variant: "destructive",
-      });
+    if (!otpToken || otpToken.length !== 6) {
+      setError("Please enter a valid 6-digit OTP");
       return;
     }
 
-    if (formData.otp.length !== 6) {
-      toast({
-        title: "Invalid OTP",
-        description: "OTP must be 6 digits",
-        variant: "destructive",
-      });
+    if (!isOnline) {
+      setError("You are offline. Please check your internet connection.");
       return;
     }
 
-    // Check if OTP has expired
-    if (otpExpiryTime && Date.now() > otpExpiryTime) {
-      setOtpError("OTP has expired. Please request a new one.");
-      return;
-    }
+    setOtpLoading(true);
+    setError("");
 
-    // Rate limiting check
-    if (attemptCount >= 3) {
-      const canRetry = rateLimitUtils.canSendOTP(formData.email).allowed;
-      if (!canRetry) {
-        toast({
-          title: "Too many attempts",
-          description: "Please wait before trying again",
-          variant: "destructive",
-        });
-        return;
-      }
-    }
-
-    setLoading(true);
     try {
-      let result;
-      
-      if (userType === 'admin' && formData.email === ADMIN_EMAIL) {
-        result = await signInAdmin(formData.email);
-      } else {
-        result = await verifyOTP(formData.email, formData.otp);
-      }
-      
-      if (result.success) {
-        setOtpSuccess(true);
-        setOtpError("");
-        setRecoveryActions([]);
-        
-        toast({
-          title: "Login successful",
-          description: "Welcome back!",
-        });
-        
-        onSuccess();
-      } else {
-        setAttemptCount(prev => prev + 1);
-        rateLimitUtils.incrementAttempts(formData.email);
-        
-        const errorMessage = result.error || "Verification failed";
-        const actions = getRecoveryActions(errorMessage);
-        
-        setOtpError(errorMessage);
-        setRecoveryActions(actions);
-        
-        toast({
-          title: "Verification failed",
-          description: errorMessage,
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error('Verification error:', error);
-      setOtpError("");
-      setRecoveryActions([]);
-      setAttemptCount(prev => prev + 1);
+      await verifyOTP(email, otpToken);
       
       toast({
-        title: "Verification failed",
-        description: "Please try again",
-        variant: "destructive",
+        title: "Authentication successful",
+        description: "Welcome to the Municipal Portal!",
       });
+
+      // Create/update profile based on user type
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .upsert({
+            user_id: user.id,
+            email: user.email || email,
+            role: userType,
+            council_id: '00000000-0000-0000-0000-000000000001',
+            full_name: user.user_metadata?.full_name || null,
+            phone: user.user_metadata?.phone || null
+          }, {
+            onConflict: 'user_id'
+          });
+
+        if (profileError) {
+          console.error("Error creating/updating profile:", profileError);
+        }
+      }
+
+      onSuccess();
+    } catch (error: any) {
+      console.error("Error verifying OTP:", error);
+      const attempts = rateLimitUtils.incrementAttempts(email);
+      setRemainingAttempts(Math.max(0, 3 - attempts));
+      setError(error.message || "Invalid OTP. Please try again.");
+      
+      if (attempts >= 3) {
+        setError("Too many failed attempts. Please request a new OTP.");
+        setIsOtpSent(false);
+        setOtpToken("");
+      }
     } finally {
-      setLoading(false);
+      setOtpLoading(false);
     }
   };
 
-  const handleResendOTP = async () => {
-    if (resendCooldown > 0 || isResending) {
-      return;
-    }
+  const resetForm = () => {
+    setIsOtpSent(false);
+    setOtpToken("");
+    setError("");
+    setResendCooldown(0);
+    rateLimitUtils.resetAttempts(email);
+    setRemainingAttempts(3);
+  };
 
-    setIsResending(true);
-    try {
-      const result = await sendOTP(formData.email);
-      
-      if (result.success) {
-        setOtpExpiryTime(Date.now() + (10 * 60 * 1000));
-        setTimeRemaining(600);
-        setResendCooldown(60);
-        setOtpError("");
-        setFormData(prev => ({ ...prev, otp: "" }));
-        
-        toast({
-          title: "OTP resent",
-          description: `New code sent to your ${authMethod}`,
-        });
-      } else {
-        toast({
-          title: "Failed to resend OTP",
-          description: "Please try again",
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error('Resend error:', error);
-      toast({
-        title: "Failed to resend OTP",
-        description: "Please try again",
-        variant: "destructive",
-      });
-    } finally {
-      setIsResending(false);
+  const getUserTypeIcon = () => {
+    switch (userType) {
+      case 'admin': return <Shield className="h-6 w-6" />;
+      case 'worker': return <Users className="h-6 w-6" />;
+      case 'citizen': return <UserCheck className="h-6 w-6" />;
     }
   };
 
-  if (showPasswordReset) {
-    return <PasswordReset onBack={() => setShowPasswordReset(false)} />;
-  }
+  const getUserTypeTitle = () => {
+    switch (userType) {
+      case 'admin': return 'Admin Portal';
+      case 'worker': return 'Worker Portal';
+      case 'citizen': return 'Citizen Portal';
+    }
+  };
 
-  const canResend = resendCooldown === 0 && !isResending;
-  const hasTimeRemaining = timeRemaining > 0;
+  const getUserTypeDescription = () => {
+    switch (userType) {
+      case 'admin': return 'Administrative access to manage municipal operations';
+      case 'worker': return 'Worker access to view and update assigned reports';
+      case 'citizen': return 'Citizen access to submit and track reports';
+    }
+  };
 
   return (
-    <div className="w-full max-w-md mx-auto space-y-6">
-      <Card>
-        <CardHeader className="space-y-1">
-          <div className="flex items-center justify-center mb-4">
-            {userType === 'admin' ? (
-              <div className="flex items-center space-x-2">
-                <Shield className="h-8 w-8 text-primary" />
-                <h2 className="text-2xl font-bold">Admin Portal</h2>
-              </div>
-            ) : (
-              <div className="flex items-center space-x-2">
-                <Building2 className="h-8 w-8 text-primary" />
-                <h2 className="text-2xl font-bold">Citizen Portal</h2>
-              </div>
-            )}
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-secondary/20 p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <div className="flex justify-center items-center gap-2 mb-2">
+            <Building2 className="h-8 w-8 text-primary" />
+            {getUserTypeIcon()}
           </div>
-          <CardTitle className="text-2xl text-center">
-            {otpSuccess ? "Login Successful" : currentStep === 'email' ? 'Sign In' : 'Verify OTP'}
-          </CardTitle>
-          <CardDescription className="text-center">
-            {otpSuccess 
-              ? "Redirecting to dashboard..." 
-              : currentStep === 'email' 
-                ? 'Enter your email to receive an OTP' 
-                : `We've sent a 6-digit code to your ${authMethod}`}
-          </CardDescription>
+          <CardTitle className="text-2xl">{getUserTypeTitle()}</CardTitle>
+          <CardDescription>{getUserTypeDescription()}</CardDescription>
         </CardHeader>
-
-        <CardContent className="space-y-4">
-          {otpSuccess ? (
-            <div className="flex items-center justify-center space-x-2 text-green-600">
-              <CheckCircle className="h-5 w-5" />
-              <span>Login successful!</span>
-            </div>
-          ) : (
-            <form onSubmit={handleSignIn} className="space-y-4">
-              {currentStep === 'email' ? (
+        <CardContent>
+          {!isOtpSent ? (
+            <Tabs value={isSignUp ? "signup" : "signin"} onValueChange={(value) => setIsSignUp(value === "signup")}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="signin">Sign In</TabsTrigger>
+                <TabsTrigger value="signup">Sign Up</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="signin" className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">Email</Label>
                   <Input
                     id="email"
                     type="email"
-                    placeholder={userType === 'admin' ? "admin@bennett.edu.in" : "Enter your email"}
-                    value={formData.email}
-                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                    required
+                    placeholder="Enter your email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={loading}
                   />
-                  {userType === 'admin' && (
-                    <p className="text-xs text-muted-foreground">
-                      Admin access requires a @bennett.edu.in email address
-                    </p>
-                  )}
                 </div>
-              ) : (
-                <div className="space-y-4">
-                  {/* OTP Display */}
-                  <div className="text-center space-y-2">
-                    <Mail className="h-12 w-12 text-muted-foreground mx-auto" />
-                    <p className="text-sm text-muted-foreground">
-                      Code sent to {formData.email}
-                    </p>
-                    {hasTimeRemaining && (
-                      <div className="flex items-center justify-center space-x-1 text-xs text-muted-foreground">
-                        <Clock className="h-3 w-3" />
-                        <span>Expires in {Math.floor(timeRemaining / 60)}:{(timeRemaining % 60).toString().padStart(2, '0')}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="otp">6-digit code</Label>
-                    <Input
-                      ref={otpInputRef}
-                      id="otp"
-                      type="text"
-                      placeholder="000000"
-                      value={formData.otp}
-                      onChange={(e) => {
-                        const value = e.target.value.replace(/\D/g, '').slice(0, 6);
-                        setFormData(prev => ({ ...prev, otp: value }));
-                        setOtpError("");
-                      }}
-                      maxLength={6}
-                      className="text-center text-2xl font-mono tracking-widest"
-                      required
-                    />
-                  </div>
-
-                  {otpError && (
-                    <Alert variant="destructive">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>{otpError}</AlertDescription>
-                    </Alert>
+                <Button onClick={handleSendOTP} disabled={loading || !isOnline} className="w-full">
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Sending OTP...
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="mr-2 h-4 w-4" />
+                      Send OTP
+                    </>
                   )}
-
-                  {recoveryActions.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium">Try these solutions:</p>
-                      <ul className="text-xs space-y-1 text-muted-foreground">
-                        {recoveryActions.map((action, index) => (
-                          <li key={index}>• {action}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {attemptCount >= 3 && (
-                    <Alert variant="destructive">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>
-                        Multiple failed attempts. If you continue having issues, contact support.
-                      </AlertDescription>
-                    </Alert>
-                  )}
-
-                  <div className="flex justify-center">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleResendOTP}
-                      disabled={!canResend}
-                      className="text-xs"
-                    >
-                      {isResending ? (
-                        <>
-                          <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                          Sending...
-                        </>
-                      ) : canResend ? (
-                        <>
-                          <RefreshCw className="h-3 w-3 mr-1" />
-                          Resend code
-                        </>
-                      ) : (
-                        <>
-                          <Clock className="h-3 w-3 mr-1" />
-                          Resend in {resendCooldown}s
-                        </>
-                      )}
-                    </Button>
-                  </div>
+                </Button>
+              </TabsContent>
+              
+              <TabsContent value="signup" className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="signup-email">Email</Label>
+                  <Input
+                    id="signup-email"
+                    type="email"
+                    placeholder="Enter your email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={loading}
+                  />
                 </div>
-              )}
-
-              <Button 
-                type="submit" 
-                className="w-full" 
-                disabled={loading || !networkStatus.online}
-              >
-                {loading ? (
+                <Button onClick={handleSendOTP} disabled={loading || !isOnline} className="w-full">
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating Account...
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="mr-2 h-4 w-4" />
+                      Create Account
+                    </>
+                  )}
+                </Button>
+              </TabsContent>
+            </Tabs>
+          ) : (
+            <div className="space-y-4">
+              <div className="text-center">
+                <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-2" />
+                <h3 className="text-lg font-semibold">OTP Sent</h3>
+                <p className="text-sm text-muted-foreground">
+                  Please check your email for the 6-digit verification code
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="otp">Verification Code</Label>
+                <Input
+                  id="otp"
+                  type="text"
+                  placeholder="Enter 6-digit OTP"
+                  value={otpToken}
+                  onChange={(e) => setOtpToken(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  disabled={otpLoading}
+                  maxLength={6}
+                />
+              </div>
+              
+              <Button onClick={handleVerifyOTP} disabled={otpLoading || !isOnline} className="w-full">
+                {otpLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {currentStep === 'email' ? 'Sending...' : 'Verifying...'}
+                    Verifying...
                   </>
-                ) : currentStep === 'email' ? (
-                  'Send OTP'
                 ) : (
-                  'Verify & Sign In'
+                  "Verify OTP"
                 )}
               </Button>
-
-              {currentStep === 'otp' && (
+              
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>Attempts remaining: {remainingAttempts}</span>
                 <Button
-                  type="button"
                   variant="ghost"
-                  className="w-full"
-                  onClick={() => {
-                    setCurrentStep('email');
-                    setShowOtpVerification(false);
-                    setFormData(prev => ({ ...prev, otp: "" }));
-                    setOtpError("");
-                    setTimeRemaining(0);
-                    setOtpExpiryTime(null);
-                  }}
+                  size="sm"
+                  onClick={resendCooldown > 0 ? undefined : handleSendOTP}
+                  disabled={resendCooldown > 0 || loading}
+                  className="p-0 h-auto"
                 >
-                  ← Back to email
+                  {resendCooldown > 0 ? (
+                    `Resend in ${resendCooldown}s`
+                  ) : (
+                    <>
+                      <RefreshCw className="mr-1 h-3 w-3" />
+                      Resend OTP
+                    </>
+                  )}
                 </Button>
-              )}
-            </form>
-          )}
-
-          {/* Sign Up Section for Citizens */}
-          {userType === 'citizen' && currentStep === 'email' && !otpSuccess && (
-            <div className="pt-4 border-t">
-              <Tabs defaultValue="signin" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="signin">Sign In</TabsTrigger>
-                  <TabsTrigger value="signup">Sign Up</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="signup" className="space-y-4 mt-4">
-                  <p className="text-sm text-muted-foreground text-center">
-                    Create a new account
-                  </p>
-                  
-                  <form onSubmit={handleSignUp} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="fullName">Full Name</Label>
-                      <Input
-                        id="fullName"
-                        type="text"
-                        placeholder="Enter your full name"
-                        value={formData.fullName}
-                        onChange={(e) => setFormData(prev => ({ ...prev, fullName: e.target.value }))}
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="phone">Phone Number</Label>
-                      <Input
-                        id="phone"
-                        type="tel"
-                        placeholder="Enter your phone number"
-                        value={formData.phone}
-                        onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="role">Role</Label>
-                      <Select value={formData.role} onValueChange={(value: "citizen" | "worker" | "admin") => setFormData(prev => ({ ...prev, role: value }))}>
-                        <SelectTrigger className="h-9">
-                          <SelectValue placeholder="Select role" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="citizen">Citizen</SelectItem>
-                          <SelectItem value="worker">Worker</SelectItem>
-                          <SelectItem value="admin">Admin</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {formData.role === "worker" && (
-                      <div className="space-y-2">
-                        <Label htmlFor="councilId">Municipal Council</Label>
-                        <Select value={formData.councilId} onValueChange={(value) => setFormData(prev => ({ ...prev, councilId: value }))} onOpenChange={loadCouncils}>
-                          <SelectTrigger className="h-9">
-                            <SelectValue placeholder="Select council" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {councils.map((council) => (
-                              <SelectItem key={council.id} value={council.id}>
-                                {council.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-
-                    <Button type="submit" className="w-full" disabled={loading}>
-                      {loading ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Creating Account...
-                        </>
-                      ) : (
-                        'Create Account'
-                      )}
-                    </Button>
-                  </form>
-                </TabsContent>
-              </Tabs>
+              </div>
+              
+              <Button variant="outline" onClick={resetForm} className="w-full">
+                Change Email
+              </Button>
             </div>
           )}
-
-          {!networkStatus.online && (
-            <Alert variant="destructive">
-              <Zap className="h-4 w-4" />
+          
+          {error && (
+            <Alert variant="destructive" className="mt-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          
+          {!isOnline && (
+            <Alert className="mt-4">
+              <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                No internet connection. Please check your network and try again.
+                You are currently offline. Please check your internet connection.
               </AlertDescription>
             </Alert>
           )}
