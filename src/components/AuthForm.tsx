@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, Building2, Mail, AlertCircle, CheckCircle, RefreshCw, Shield, Users, UserCheck } from "lucide-react";
@@ -26,6 +27,14 @@ const AuthForm = ({ onSuccess, userType }: AuthFormProps) => {
   const [error, setError] = useState("");
   const [resendCooldown, setResendCooldown] = useState(0);
   const [remainingAttempts, setRemainingAttempts] = useState(3);
+  
+  // Worker registration fields
+  const [workerData, setWorkerData] = useState({
+    fullName: "",
+    phone: "",
+    specialty: ""
+  });
+  
   const isOnline = useNetworkStatus();
   const cooldownInterval = useRef<NodeJS.Timeout>();
 
@@ -65,6 +74,18 @@ const AuthForm = ({ onSuccess, userType }: AuthFormProps) => {
     if (!emailRegex.test(email)) {
       setError("Please enter a valid email address");
       return;
+    }
+
+    // Worker validation for signup
+    if (userType === 'worker' && isSignUp) {
+      if (!workerData.fullName.trim()) {
+        setError("Please enter your full name");
+        return;
+      }
+      if (!workerData.phone.trim()) {
+        setError("Please enter your phone number");
+        return;
+      }
     }
 
     // Role-specific email validation (remove hardcoded admin bypass)  
@@ -147,8 +168,8 @@ const AuthForm = ({ onSuccess, userType }: AuthFormProps) => {
           email: session.user.email || email,
           role: userType,
           council_id: '00000000-0000-0000-0000-000000000001',
-          full_name: session.user.user_metadata?.full_name || null,
-          phone: session.user.user_metadata?.phone || null
+          full_name: userType === 'worker' ? workerData.fullName : (session.user.user_metadata?.full_name || null),
+          phone: userType === 'worker' ? workerData.phone : (session.user.user_metadata?.phone || null)
         }, {
           onConflict: 'user_id'
         });
@@ -156,6 +177,28 @@ const AuthForm = ({ onSuccess, userType }: AuthFormProps) => {
       if (profileError) {
         console.error("Error creating/updating profile:", profileError);
         throw new Error("Failed to create user profile");
+      }
+
+      // If worker, also create worker profile
+      if (userType === 'worker' && isSignUp) {
+        const { error: workerError } = await supabase
+          .from("workers")
+          .upsert({
+            user_id: session.user.id,
+            full_name: workerData.fullName,
+            email: session.user.email || email,
+            phone: workerData.phone || null,
+            specialty: workerData.specialty || null,
+            council_id: '00000000-0000-0000-0000-000000000001',
+            is_available: true
+          }, {
+            onConflict: 'user_id'
+          });
+
+        if (workerError) {
+          console.error("Error creating worker profile:", workerError);
+          throw new Error("Failed to create worker profile");
+        }
       }
       
       toast({
@@ -272,6 +315,57 @@ const AuthForm = ({ onSuccess, userType }: AuthFormProps) => {
                     disabled={loading}
                   />
                 </div>
+                
+                {userType === 'worker' && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="fullName">Full Name *</Label>
+                      <Input
+                        id="fullName"
+                        placeholder="Enter your full name"
+                        value={workerData.fullName}
+                        onChange={(e) => setWorkerData({ ...workerData, fullName: e.target.value })}
+                        disabled={loading}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Phone Number *</Label>
+                      <Input
+                        id="phone"
+                        type="tel"
+                        placeholder="Enter your phone number"
+                        value={workerData.phone}
+                        onChange={(e) => setWorkerData({ ...workerData, phone: e.target.value })}
+                        disabled={loading}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="specialty">Specialty</Label>
+                      <Select
+                        value={workerData.specialty}
+                        onValueChange={(value) => setWorkerData({ ...workerData, specialty: value })}
+                        disabled={loading}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select your specialty" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="electrician">Electrician</SelectItem>
+                          <SelectItem value="plumber">Plumber</SelectItem>
+                          <SelectItem value="road_maintenance">Road Maintenance</SelectItem>
+                          <SelectItem value="sanitation">Sanitation</SelectItem>
+                          <SelectItem value="water_supply">Water Supply</SelectItem>
+                          <SelectItem value="waste_management">Waste Management</SelectItem>
+                          <SelectItem value="general">General Maintenance</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </>
+                )}
+                
                 <Button onClick={handleSendOTP} disabled={loading || !isOnline} className="w-full">
                   {loading ? (
                     <>

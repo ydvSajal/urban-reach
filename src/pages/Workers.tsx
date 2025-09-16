@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Search, Edit, Trash2, UserPlus, Phone, Mail } from "lucide-react";
+import { Search, Edit, Trash2, UserPlus, Phone, Mail } from "lucide-react";
 
 interface Worker {
   id: string;
@@ -27,7 +27,6 @@ const Workers = () => {
   const [filteredWorkers, setFilteredWorkers] = useState<Worker[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingWorker, setEditingWorker] = useState<Worker | null>(null);
   const [formData, setFormData] = useState({
     full_name: "",
@@ -127,19 +126,9 @@ const Workers = () => {
           title: "Worker updated successfully",
           description: `${formData.full_name} has been updated.`,
         });
-      } else {
-        // For adding a new worker, we would need to create a user account first
-        // This is a simplified version - in a real app, you'd integrate with your user creation flow
-        toast({
-          title: "Feature not implemented",
-          description: "Adding new workers requires user account creation. Please use the authentication system to create accounts first.",
-          variant: "destructive",
-        });
-        return;
       }
 
       resetForm();
-      setIsAddDialogOpen(false);
       loadWorkers();
     } catch (error: any) {
       console.error("Error saving worker:", error);
@@ -206,79 +195,17 @@ const Workers = () => {
         <div>
           <h1 className="text-3xl font-bold">Workers Management</h1>
           <p className="text-muted-foreground">
-            Manage your council's workforce and assignments
+            Manage registered workers and their assignments. Workers can register themselves through the worker portal.
           </p>
         </div>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={resetForm}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Worker
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add New Worker</DialogTitle>
-              <DialogDescription>
-                Note: This feature requires the worker to have a user account first. 
-                Please have them sign up through the authentication system.
-              </DialogDescription>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="full_name">Full Name</Label>
-                <Input
-                  id="full_name"
-                  value={formData.full_name}
-                  onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="phone">Phone</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="specialty">Specialty</Label>
-                <Input
-                  id="specialty"
-                  value={formData.specialty}
-                  onChange={(e) => setFormData({ ...formData, specialty: e.target.value })}
-                  placeholder="e.g., Electrician, Plumber, Road Maintenance"
-                />
-              </div>
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="is_available"
-                  checked={formData.is_available}
-                  onCheckedChange={(checked) => setFormData({ ...formData, is_available: checked })}
-                />
-                <Label htmlFor="is_available">Available for assignments</Label>
-              </div>
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit">Add Worker</Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <div className="text-right">
+          <p className="text-sm text-muted-foreground">
+            Workers can self-register at the <strong>Worker Portal</strong>
+          </p>
+          <p className="text-xs text-muted-foreground">
+            They will appear here automatically after registration
+          </p>
+        </div>
       </div>
 
       {/* Search */}
@@ -325,7 +252,10 @@ const Workers = () => {
                       <div className="flex flex-col items-center gap-2">
                         <UserPlus className="h-8 w-8 text-muted-foreground" />
                         <p className="text-muted-foreground">
-                          {searchTerm ? "No workers found matching your criteria" : "No workers added yet"}
+                          {searchTerm ? "No workers found matching your criteria" : "No workers registered yet"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Workers can register through the Worker Portal
                         </p>
                       </div>
                     </TableCell>
