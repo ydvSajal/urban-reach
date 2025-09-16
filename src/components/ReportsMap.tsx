@@ -9,6 +9,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
+// Global error handler for Select empty value errors
+const originalError = console.error;
+console.error = function(...args) {
+  const message = args[0];
+  if (typeof message === 'string' && message.includes('must have a value prop that is not an empty string')) {
+    console.log('🚨 CAUGHT EMPTY SELECT VALUE ERROR!');
+    console.log('Args:', args);
+    console.log('Stack trace:', new Error().stack);
+  }
+  originalError.apply(console, args);
+};
+
 // Fix for default markers
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -82,15 +94,15 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
         renderer: L.svg()
       }).setView([28.4509, 77.5847], 13);
       
-      // Add tile layer with proper configuration
+      // Add tile layer with proper configuration and fallback
       const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         maxZoom: 19,
         subdomains: ['a', 'b', 'c'],
-        errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==',
-        // Add additional options for better reliability
+        errorTileUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjU2IiBoZWlnaHQ9IjI1NiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjU2IiBoZWlnaHQ9IjI1NiIgZmlsbD0iI2Y5ZmFmYiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNiIgZmlsbD0iIzZiNzI4MCI+TWFwIGxvYWRpbmc8L3RleHQ+PC9zdmc+',
+        // Improved reliability options
         crossOrigin: true,
-        timeout: 10000
+        detectRetina: true
       });
       
       tileLayer.addTo(map);
@@ -106,6 +118,16 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
         console.error('Tile error:', e);
         // Try alternative tile server if primary fails
         console.log('Attempting to use alternative tile server...');
+        
+        // Add fallback tile layer
+        const fallbackLayer = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png', {
+          attribution: '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>',
+          maxZoom: 19
+        });
+        
+        if (mapInstanceRef.current && !mapInstanceRef.current.hasLayer(fallbackLayer)) {
+          fallbackLayer.addTo(mapInstanceRef.current);
+        }
       });
       
       // Ensure proper sizing
@@ -192,7 +214,35 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
       const { data, error } = await reportsQuery;
         
       if (error) throw error;
-      setReports(data || []);
+      
+      // Clean the data to ensure no empty values that could cause Select errors
+      const cleanedReports = (data || []).map(report => {
+        // Comprehensive data cleaning with logging
+        const cleanedReport = {
+          ...report,
+          category: report.category && typeof report.category === 'string' && report.category.trim() !== '' ? report.category : 'other',
+          status: report.status && typeof report.status === 'string' && report.status.trim() !== '' ? report.status : 'pending',
+          priority: report.priority && typeof report.priority === 'string' && report.priority.trim() !== '' ? report.priority : 'medium'
+        };
+        
+        // Log any data cleaning that occurred
+        if (report.category !== cleanedReport.category) {
+          console.warn(`Report ${report.id} category cleaned from '${report.category}' to '${cleanedReport.category}'`);
+        }
+        if (report.status !== cleanedReport.status) {
+          console.warn(`Report ${report.id} status cleaned from '${report.status}' to '${cleanedReport.status}'`);
+        }
+        if (report.priority !== cleanedReport.priority) {
+          console.warn(`Report ${report.id} priority cleaned from '${report.priority}' to '${cleanedReport.priority}'`);
+        }
+        
+        return cleanedReport;
+      });
+      
+      console.log('Total reports loaded:', cleanedReports.length);
+      console.log('Sample cleaned report:', cleanedReports[0]);
+      
+      setReports(cleanedReports);
     } catch (error: any) {
       console.error("Error loading reports:", error);
       toast({
@@ -404,9 +454,54 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
     );
   }
 
-  const uniqueStatuses = [...new Set(reports.map(r => r.status))];
-  const uniqueCategories = [...new Set(reports.map(r => r.category))];
-  const uniquePriorities = [...new Set(reports.map(r => r.priority))];
+  // Debug logging for Select values
+  const rawStatuses = reports.map(r => r.status);
+  const rawCategories = reports.map(r => r.category);
+  const rawPriorities = reports.map(r => r.priority);
+  
+  console.log('Raw statuses:', rawStatuses);
+  console.log('Raw categories:', rawCategories);
+  console.log('Raw priorities:', rawPriorities);
+  
+  const uniqueStatuses = [...new Set(reports.map(r => r.status))]
+    .filter(status => {
+      const isValid = status && typeof status === 'string' && status.trim() !== '' && status !== 'null' && status !== 'undefined';
+      if (!isValid) {
+        console.warn('Invalid status found:', status, typeof status);
+      }
+      return isValid;
+    });
+    
+  const uniqueCategories = [...new Set(reports.map(r => r.category))]
+    .filter(category => {
+      const isValid = category && typeof category === 'string' && category.trim() !== '' && category !== 'null' && category !== 'undefined';
+      if (!isValid) {
+        console.warn('Invalid category found:', category, typeof category);
+      }
+      return isValid;
+    });
+    
+  const uniquePriorities = [...new Set(reports.map(r => r.priority))]
+    .filter(priority => {
+      const isValid = priority && typeof priority === 'string' && priority.trim() !== '' && priority !== 'null' && priority !== 'undefined';
+      if (!isValid) {
+        console.warn('Invalid priority found:', priority, typeof priority);
+      }
+      return isValid;
+    });
+  
+  console.log('Filtered uniqueStatuses:', uniqueStatuses);
+  console.log('Filtered uniqueCategories:', uniqueCategories);
+  console.log('Filtered uniquePriorities:', uniquePriorities);
+  
+  // Additional validation to ensure no empty values slip through
+  const finalStatuses = uniqueStatuses.filter(s => s && s !== '' && s.trim() !== '');
+  const finalCategories = uniqueCategories.filter(c => c && c !== '' && c.trim() !== '');
+  const finalPriorities = uniquePriorities.filter(p => p && p !== '' && p.trim() !== '');
+  
+  console.log('Final validation - statuses:', finalStatuses);
+  console.log('Final validation - categories:', finalCategories);
+  console.log('Final validation - priorities:', finalPriorities);
 
   return (
     <div className={`space-y-4 ${className}`}>
@@ -443,49 +538,97 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="text-sm font-medium mb-2 block">Status</label>
-                <Select value={filters.status} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value }))}>
+                <Select 
+                  value={filters.status} 
+                  onValueChange={(value) => {
+                    console.log('Status filter changed to:', value);
+                    setFilters(prev => ({ ...prev, status: value }));
+                  }}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="All Statuses" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Statuses</SelectItem>
-                    {uniqueStatuses.map(status => (
-                      <SelectItem key={status} value={status}>
-                        {status.replace('_', ' ').toUpperCase()}
-                      </SelectItem>
-                    ))}
+                    {finalStatuses.length > 0 ? finalStatuses.map(status => {
+                      console.log('Rendering status SelectItem:', status, typeof status, 'length:', status?.length);
+                      if (!status || typeof status !== 'string' || status.trim() === '' || status === '') {
+                        console.error('INVALID STATUS - rejecting:', { status, type: typeof status, length: status?.length, trimmed: status?.trim?.() });
+                        return null;
+                      }
+                      console.log('VALID STATUS - rendering:', status);
+                      return (
+                        <SelectItem key={status} value={status}>
+                          {status.replace('_', ' ').toUpperCase()}
+                        </SelectItem>
+                      );
+                    }).filter(Boolean) : (
+                      <SelectItem value="pending">PENDING</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
               <div>
                 <label className="text-sm font-medium mb-2 block">Category</label>
-                <Select value={filters.category} onValueChange={(value) => setFilters(prev => ({ ...prev, category: value }))}>
+                <Select 
+                  value={filters.category} 
+                  onValueChange={(value) => {
+                    console.log('Category filter changed to:', value);
+                    setFilters(prev => ({ ...prev, category: value }));
+                  }}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="All Categories" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Categories</SelectItem>
-                    {uniqueCategories.map(category => (
-                      <SelectItem key={category} value={category}>
-                        {category.replace('_', ' ')}
-                      </SelectItem>
-                    ))}
+                    {finalCategories.length > 0 ? finalCategories.map(category => {
+                      console.log('Rendering category SelectItem:', category, typeof category, 'length:', category?.length);
+                      if (!category || typeof category !== 'string' || category.trim() === '' || category === '') {
+                        console.error('INVALID CATEGORY - rejecting:', { category, type: typeof category, length: category?.length, trimmed: category?.trim?.() });
+                        return null;
+                      }
+                      console.log('VALID CATEGORY - rendering:', category);
+                      return (
+                        <SelectItem key={category} value={category}>
+                          {category.replace('_', ' ')}
+                        </SelectItem>
+                      );
+                    }).filter(Boolean) : (
+                      <SelectItem value="other">Other</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
               <div>
                 <label className="text-sm font-medium mb-2 block">Priority</label>
-                <Select value={filters.priority} onValueChange={(value) => setFilters(prev => ({ ...prev, priority: value }))}>
+                <Select 
+                  value={filters.priority} 
+                  onValueChange={(value) => {
+                    console.log('Priority filter changed to:', value);
+                    setFilters(prev => ({ ...prev, priority: value }));
+                  }}
+                >
                   <SelectTrigger>
                     <SelectValue placeholder="All Priorities" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Priorities</SelectItem>
-                    {uniquePriorities.map(priority => (
-                      <SelectItem key={priority} value={priority}>
-                        {priority.toUpperCase()}
-                      </SelectItem>
-                    ))}
+                    {finalPriorities.length > 0 ? finalPriorities.map(priority => {
+                      console.log('Rendering priority SelectItem:', priority, typeof priority, 'length:', priority?.length);
+                      if (!priority || typeof priority !== 'string' || priority.trim() === '' || priority === '') {
+                        console.error('INVALID PRIORITY - rejecting:', { priority, type: typeof priority, length: priority?.length, trimmed: priority?.trim?.() });
+                        return null;
+                      }
+                      console.log('VALID PRIORITY - rendering:', priority);
+                      return (
+                        <SelectItem key={priority} value={priority}>
+                          {priority.toUpperCase()}
+                        </SelectItem>
+                      );
+                    }).filter(Boolean) : (
+                      <SelectItem value="medium">MEDIUM</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
