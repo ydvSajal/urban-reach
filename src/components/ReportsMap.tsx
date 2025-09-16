@@ -58,54 +58,31 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
   // Initialize map
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
-    
-    const initializeMap = () => {
-      if (!mapRef.current) return;
-      
-      // Check if container has dimensions
-      const rect = mapRef.current.getBoundingClientRect();
-      if (rect.width === 0 || rect.height === 0) {
-        console.log('Container not ready, retrying...');
-        setTimeout(initializeMap, 100);
-        return;
-      }
-      
-      try {
-        console.log('Initializing map with container dimensions:', rect);
-        
-        const map = L.map(mapRef.current, {
-          zoomControl: true,
-          attributionControl: true
-        }).setView([28.4645, 77.5173], 12);
-        
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-          maxZoom: 19,
-          crossOrigin: true
-        }).addTo(map);
-        
-        mapInstanceRef.current = map;
-        console.log('Map initialized successfully');
-        
-        // Ensure proper sizing
-        map.invalidateSize(true);
-        
-      } catch (error) {
-        console.error('Error initializing map:', error);
-      }
-    };
-    
-    // Start initialization immediately, but also ensure DOM is ready
-    if (document.readyState === 'complete') {
-      initializeMap();
-    } else {
-      document.addEventListener('DOMContentLoaded', initializeMap);
-      // Also try after a short delay as fallback
-      setTimeout(initializeMap, 200);
+
+    try {
+      const map = L.map(mapRef.current, {
+        zoomControl: true,
+        attributionControl: true,
+      }).setView([28.4645, 77.5173], 12);
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19,
+        crossOrigin: true,
+      }).addTo(map);
+
+      mapInstanceRef.current = map;
+
+      // Important: make sure map resizes correctly
+      setTimeout(() => {
+        map.invalidateSize();
+      }, 100);
+    } catch (error) {
+      console.error("Error initializing map:", error);
     }
 
     return () => {
-      document.removeEventListener('DOMContentLoaded', initializeMap);
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
