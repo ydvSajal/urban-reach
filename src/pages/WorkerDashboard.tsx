@@ -1,29 +1,47 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/hooks/use-toast";
-import { Link } from "react-router-dom";
-import {
-  CheckCircle,
-  Clock,
-  AlertCircle,
-  User,
-  MapPin,
+import { User } from "@supabase/supabase-js";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "@/components/ui/use-toast";
+import { 
+  AlertCircle, 
+  CheckCircle, 
+  Clock, 
+  MapPin, 
+  Phone, 
+  Mail, 
   Calendar,
-  Filter,
+  ArrowUpDown,
   Search,
-  Eye,
-  TrendingUp,
-  FileText,
-  Loader2
+  Filter,
+  BarChart3,
+  Activity,
+  Target,
+  TrendingUp
 } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
+
+interface WorkerProfile {
+  id: string;
+  user_id: string;
+  full_name: string;
+  email: string;
+  phone: string | null;
+  specialty: string | null;
+  council_id: string;
+  is_available: boolean;
+  created_at: string;
+  updated_at: string;
+}
 
 interface AssignedReport {
   id: string;
@@ -31,64 +49,78 @@ interface AssignedReport {
   title: string;
   description: string;
   category: string;
-  status: string;
-  priority: string;
+  status: 'pending' | 'acknowledged' | 'in_progress' | 'resolved' | 'closed';
+  priority: 'low' | 'medium' | 'high' | 'critical';
   location_address: string;
+  latitude: number | null;
+  longitude: number | null;
   created_at: string;
   updated_at: string;
+  resolved_at: string | null;
+  citizen_id: string;
+  assigned_worker_id: string | null;
   profiles: {
     full_name: string | null;
     email: string | null;
-  } | null;
+  };
 }
 
-import { Tables } from "@/integrations/supabase/types";
-import { useWorkerSubscription, useRealtimeConnectionStatus } from "@/hooks/useRealtimeSubscription";
-
-type WorkerProfile = Tables<"workers">;
+interface DashboardStats {
+  total: number;
+  pending: number;
+  inProgress: number;
+  resolved: number;
+}
 
 const WorkerDashboard = () => {
+  const [user, setUser] = useState<User | null>(null);
+  const [workerProfile, setWorkerProfile] = useState<WorkerProfile | null>(null);
   const [reports, setReports] = useState<AssignedReport[]>([]);
   const [filteredReports, setFilteredReports] = useState<AssignedReport[]>([]);
-  const [workerProfile, setWorkerProfile] = useState<WorkerProfile | null>(null);
+  const [stats, setStats] = useState<DashboardStats>({ total: 0, pending: 0, inProgress: 0, resolved: 0 });
   const [loading, setLoading] = useState(true);
-  const [updating, setUpdating] = useState(false);
-
-  // Filters and sorting
+  const [error, setError] = useState<string | null>(null);
+  
+  // Filter and sort states
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [priorityFilter, setPriorityFilter] = useState("all");
-  const [sortBy, setSortBy] = useState("created_at");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<"created_at" | "priority" | "status">("created_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
-  // Stats
-  const [stats, setStats] = useState({
-    total: 0,
-    pending: 0,
-    inProgress: 0,
-    resolved: 0,
-  });
+  // Real-time subscription for worker-assigned reports
+  const useWorkerSubscription = () => {
+    useEffect(() => {
+      if (!workerProfile?.id) return;
+
+      const subscription = supabase
+        .channel(`worker-reports-${workerProfile.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'reports',
+            filter: `assigned_worker_id=eq.${workerProfile.id}`,
+          },
+          (payload) => {
+            console.log('Report update received:', payload);
+            loadWorkerData(); // Reload data when changes occur
+          }
+        )
+        .subscribe();
+
+      return () => {
+        subscription.unsubscribe();
+      };
+    }, [workerProfile?.id]);
+  };
+
+  useWorkerSubscription();
 
   useEffect(() => {
     loadWorkerData();
   }, []);
-
-  // Set up realtime subscription for worker assignments
-  useWorkerSubscription(
-    workerProfile?.id,
-    (updatedReport) => {
-      // Reload data when a new report is assigned or updated
-      loadWorkerData();
-      toast({
-        title: "Assignment Update",
-        description: `Report #${updatedReport.report_number} has been updated`,
-      });
-    },
-    !!workerProfile?.id
-  );
-
-  // Get realtime connection status
-  const { isOnline } = useRealtimeConnectionStatus();
 
   useEffect(() => {
     filterAndSortReports();
@@ -103,6 +135,20 @@ const WorkerDashboard = () => {
         throw new Error("User not authenticated");
       }
 
+      setUser(user);
+
+      // First, get user's profile to check role
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+
+      if (profileError) {
+        console.error("Profile error:", profileError);
+        throw new Error("Failed to load user profile");
+      }
+
       // Load worker profile
       const { data: worker, error: workerError } = await supabase
         .from("workers")
@@ -110,50 +156,44 @@ const WorkerDashboard = () => {
         .eq("user_id", user.id)
         .single();
 
-      if (workerError) {
+      if (workerError && workerError.code !== 'PGRST116') {
         console.error("Worker profile error:", workerError);
-        throw new Error("Worker profile not found");
+        throw new Error("Failed to load worker profile");
       }
 
-      setWorkerProfile(worker);
+      // If no worker profile exists, create one for users with worker role
+      if (!worker && profile?.role === 'worker') {
+        const { data: newWorker, error: createError } = await supabase
+          .from("workers")
+          .insert({
+            user_id: user.id,
+            full_name: profile.full_name || user.email?.split('@')[0] || 'Worker',
+            email: user.email || '',
+            phone: profile.phone || '',
+            specialty: 'General',
+            council_id: profile.council_id,
+            is_available: true
+          })
+          .select()
+          .single();
 
-      // Load assigned reports
-      const { data: reportsData, error: reportsError } = await supabase
-        .from("reports")
-        .select("*")
-        .eq("assigned_worker_id", worker.id)
-        .order("created_at", { ascending: false });
+        if (createError) {
+          console.error("Error creating worker profile:", createError);
+          throw new Error("Failed to create worker profile");
+        }
 
-      if (reportsError) throw reportsError;
-
-      // Fetch citizen profiles for each report
-      const reportsWithProfiles = await Promise.all(
-        (reportsData || []).map(async (report) => {
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("full_name, email")
-            .eq("user_id", report.citizen_id)
-            .single();
-
-          return {
-            ...report,
-            profiles: profile || { full_name: null, email: null }
-          };
-        })
-      );
-
-      setReports(reportsWithProfiles);
-
-      // Calculate stats
-      const total = reportsWithProfiles.length;
-      const pending = reportsWithProfiles.filter(r => r.status === 'acknowledged').length;
-      const inProgress = reportsWithProfiles.filter(r => r.status === 'in_progress').length;
-      const resolved = reportsWithProfiles.filter(r => r.status === 'resolved' || r.status === 'closed').length;
-
-      setStats({ total, pending, inProgress, resolved });
+        setWorkerProfile(newWorker);
+        await loadReportsForWorker(newWorker.id);
+      } else if (worker) {
+        setWorkerProfile(worker);
+        await loadReportsForWorker(worker.id);
+      } else {
+        throw new Error("You don't have worker access. Please contact your administrator.");
+      }
 
     } catch (error: any) {
       console.error("Error loading worker data:", error);
+      setError(error.message);
       toast({
         title: "Error loading dashboard",
         description: error.message,
@@ -162,6 +202,45 @@ const WorkerDashboard = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadReportsForWorker = async (workerId: string) => {
+    const { data: reportsData, error: reportsError } = await supabase
+      .from("reports")
+      .select("*")
+      .eq("assigned_worker_id", workerId)
+      .order("created_at", { ascending: false });
+
+    if (reportsError) {
+      console.error("Reports error:", reportsError);
+      return;
+    }
+
+    // Fetch citizen profiles for each report
+    const reportsWithProfiles = await Promise.all(
+      (reportsData || []).map(async (report) => {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("full_name, email")
+          .eq("user_id", report.citizen_id)
+          .single();
+
+        return {
+          ...report,
+          profiles: profile || { full_name: null, email: null }
+        };
+      })
+    );
+
+    setReports(reportsWithProfiles);
+
+    // Calculate stats
+    const total = reportsWithProfiles.length;
+    const pending = reportsWithProfiles.filter(r => r.status === 'acknowledged').length;
+    const inProgress = reportsWithProfiles.filter(r => r.status === 'in_progress').length;
+    const resolved = reportsWithProfiles.filter(r => r.status === 'resolved' || r.status === 'closed').length;
+
+    setStats({ total, pending, inProgress, resolved });
   };
 
   const filterAndSortReports = () => {
@@ -188,7 +267,7 @@ const WorkerDashboard = () => {
       filtered = filtered.filter((report) => report.priority === priorityFilter);
     }
 
-    // Sort reports
+    // Sorting
     filtered.sort((a, b) => {
       let aValue: any, bValue: any;
 
@@ -197,29 +276,17 @@ const WorkerDashboard = () => {
           aValue = new Date(a.created_at);
           bValue = new Date(b.created_at);
           break;
-        case "updated_at":
-          aValue = new Date(a.updated_at);
-          bValue = new Date(b.updated_at);
+        case "priority":
+          const priorityOrder = { critical: 4, high: 3, medium: 2, low: 1 };
+          aValue = priorityOrder[a.priority as keyof typeof priorityOrder];
+          bValue = priorityOrder[b.priority as keyof typeof priorityOrder];
           break;
-        case "priority": {
-          const priorityOrder = { high: 3, medium: 2, low: 1 };
-          aValue = priorityOrder[a.priority as keyof typeof priorityOrder] || 0;
-          bValue = priorityOrder[b.priority as keyof typeof priorityOrder] || 0;
-          break;
-        }
-        case "status": {
-          const statusOrder = { acknowledged: 1, in_progress: 2, resolved: 3, closed: 4 };
-          aValue = statusOrder[a.status as keyof typeof statusOrder] || 0;
-          bValue = statusOrder[b.status as keyof typeof statusOrder] || 0;
-          break;
-        }
-        case "report_number":
-          aValue = a.report_number;
-          bValue = b.report_number;
+        case "status":
+          aValue = a.status;
+          bValue = b.status;
           break;
         default:
-          aValue = a.created_at;
-          bValue = b.created_at;
+          return 0;
       }
 
       if (sortOrder === "asc") {
@@ -235,7 +302,6 @@ const WorkerDashboard = () => {
   const updateAvailability = async (isAvailable: boolean) => {
     if (!workerProfile) return;
 
-    setUpdating(true);
     try {
       const { error } = await supabase
         .from("workers")
@@ -245,61 +311,57 @@ const WorkerDashboard = () => {
       if (error) throw error;
 
       setWorkerProfile({ ...workerProfile, is_available: isAvailable });
-
       toast({
-        title: "Availability updated",
-        description: `You are now ${isAvailable ? 'available' : 'unavailable'} for new assignments`,
+        title: "Status updated",
+        description: `You are now ${isAvailable ? "available" : "unavailable"} for assignments`,
       });
     } catch (error: any) {
       console.error("Error updating availability:", error);
       toast({
-        title: "Error updating availability",
-        description: error.message,
+        title: "Error",
+        description: "Failed to update availability status",
         variant: "destructive",
       });
-    } finally {
-      setUpdating(false);
     }
   };
 
-  const quickStatusUpdate = async (reportId: string, newStatus: 'acknowledged' | 'in_progress' | 'resolved' | 'closed') => {
+  const quickStatusUpdate = async (reportId: string, newStatus: 'pending' | 'acknowledged' | 'in_progress' | 'resolved' | 'closed') => {
+    if (!user) return;
+
     try {
       const { error } = await supabase
         .from("reports")
-        .update({ status: newStatus })
+        .update({ 
+          status: newStatus,
+          updated_at: new Date().toISOString(),
+          ...(newStatus === 'resolved' && { resolved_at: new Date().toISOString() })
+        })
         .eq("id", reportId);
 
       if (error) throw error;
 
-      // Add status history
-      const { data: { user } } = await supabase.auth.getUser();
+      // Add to status history
       const currentReport = reports.find(r => r.id === reportId);
-      const { error: historyError } = await supabase
-        .from("report_status_history")
-        .insert({
-          report_id: reportId,
-          old_status: (currentReport?.status || 'pending') as 'pending' | 'resolved' | 'acknowledged' | 'in_progress' | 'closed',
-          new_status: newStatus,
-          notes: `Quick update by worker`,
-          changed_by: user?.id || "",
-        });
-
-      if (historyError) {
-        console.error("Error adding status history:", historyError);
-      }
-
-      toast({
-        title: "Status updated",
-        description: `Report status changed to ${newStatus.replace('_', ' ')}`,
+      await supabase.from("report_status_history").insert({
+        report_id: reportId,
+        old_status: currentReport?.status || null,
+        new_status: newStatus,
+        changed_by: user.id,
+        notes: `Status updated via worker dashboard`
       });
 
       // Reload data
       loadWorkerData();
+
+      toast({
+        title: "Status updated",
+        description: `Report status changed to ${newStatus}`,
+      });
     } catch (error: any) {
       console.error("Error updating status:", error);
       toast({
-        title: "Error updating status",
-        description: error.message,
+        title: "Error",
+        description: "Failed to update report status",
         variant: "destructive",
       });
     }
@@ -307,7 +369,8 @@ const WorkerDashboard = () => {
 
   const getStatusBadgeVariant = (status: string) => {
     switch (status) {
-      case 'acknowledged': return 'secondary';
+      case 'pending': return 'secondary';
+      case 'acknowledged': return 'default';
       case 'in_progress': return 'default';
       case 'resolved': return 'default';
       case 'closed': return 'outline';
@@ -317,6 +380,7 @@ const WorkerDashboard = () => {
 
   const getPriorityBadgeVariant = (priority: string) => {
     switch (priority) {
+      case 'critical': return 'destructive';
       case 'high': return 'destructive';
       case 'medium': return 'default';
       case 'low': return 'secondary';
@@ -325,26 +389,55 @@ const WorkerDashboard = () => {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    return formatDistanceToNow(new Date(dateString), { addSuffix: true });
   };
 
   if (loading) {
     return (
-      <div className="p-6">
-        <div className="animate-pulse space-y-6">
-          <div className="h-8 bg-muted rounded w-64"></div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-32 bg-muted rounded"></div>
-            ))}
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <Skeleton className="h-8 w-48 mb-2" />
+            <Skeleton className="h-4 w-64" />
           </div>
-          <div className="h-96 bg-muted rounded"></div>
+          <Skeleton className="h-10 w-32" />
         </div>
+        
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i}>
+              <CardContent className="pt-6">
+                <Skeleton className="h-4 w-16 mb-2" />
+                <Skeleton className="h-8 w-12" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <Card key={i}>
+              <CardContent className="pt-6">
+                <Skeleton className="h-6 w-32 mb-2" />
+                <Skeleton className="h-4 w-full mb-2" />
+                <Skeleton className="h-4 w-3/4" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-6">
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            {error}
+          </AlertDescription>
+        </Alert>
       </div>
     );
   }
@@ -367,381 +460,222 @@ const WorkerDashboard = () => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Worker Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Welcome, {workerProfile.full_name}</h1>
           <p className="text-muted-foreground">
-            Welcome back, {workerProfile.full_name}
+            Manage your assigned reports and track your progress
           </p>
         </div>
-
-        {/* Availability Toggle */}
-        <div className="flex gap-4">
-          <Card className="p-4">
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="availability"
-                checked={workerProfile.is_available ?? false}
-                onCheckedChange={updateAvailability}
-                disabled={updating}
-              />
-              <Label htmlFor="availability" className="flex items-center gap-2">
-                {updating && <Loader2 className="h-4 w-4 animate-spin" />}
-                {(workerProfile.is_available ?? false) ? (
-                  <Badge variant="default">Available</Badge>
-                ) : (
-                  <Badge variant="destructive">Unavailable</Badge>
-                )}
-              </Label>
-            </div>
-          </Card>
-
-          {/* Connection Status Indicator */}
-          <Card className="p-4">
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'}`} />
-              <span className="text-sm text-muted-foreground">
-                {isOnline ? 'Live Updates' : 'Offline'}
-              </span>
-            </div>
-          </Card>
+        <div className="flex items-center space-x-2">
+          <span className="text-sm text-muted-foreground">Available for assignments</span>
+          <Switch
+            checked={workerProfile.is_available}
+            onCheckedChange={updateAvailability}
+          />
         </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="border-blue-200 bg-blue-50/50">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-medium text-blue-900">Pending Actions</h3>
-                <p className="text-2xl font-bold text-blue-700">{stats.pending}</p>
-                <p className="text-xs text-blue-600">Reports awaiting your action</p>
-                {stats.pending > 0 && (
-                  <Button 
-                    size="sm" 
-                    className="mt-2 bg-blue-600 hover:bg-blue-700"
-                    onClick={() => {
-                      setStatusFilter("acknowledged");
-                      setSortBy("created_at");
-                      setSortOrder("asc");
-                    }}
-                  >
-                    View Pending
-                  </Button>
-                )}
-              </div>
-              <Clock className="h-8 w-8 text-blue-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-orange-200 bg-orange-50/50">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-medium text-orange-900">In Progress</h3>
-                <p className="text-2xl font-bold text-orange-700">{stats.inProgress}</p>
-                <p className="text-xs text-orange-600">Currently working on</p>
-                {stats.inProgress > 0 && (
-                  <Button 
-                    size="sm" 
-                    className="mt-2 bg-orange-600 hover:bg-orange-700"
-                    onClick={() => {
-                      setStatusFilter("in_progress");
-                      setSortBy("updated_at");
-                      setSortOrder("asc");
-                    }}
-                  >
-                    Continue Work
-                  </Button>
-                )}
-              </div>
-              <AlertCircle className="h-8 w-8 text-orange-600" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-green-200 bg-green-50/50">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-medium text-green-900">Completed Today</h3>
-                <p className="text-2xl font-bold text-green-700">
-                  {reports.filter(r =>
-                    (r.status === 'resolved' || r.status === 'closed') &&
-                    new Date(r.updated_at).toDateString() === new Date().toDateString()
-                  ).length}
-                </p>
-                <p className="text-xs text-green-600">Reports resolved today</p>
-              </div>
-              <CheckCircle className="h-8 w-8 text-green-600" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      {/* Quick Action Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Assigned</CardTitle>
-            <FileText className="h-4 w-4 text-blue-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
-            <p className="text-xs text-muted-foreground">All time assignments</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending</CardTitle>
-            <Clock className="h-4 w-4 text-yellow-600" />
-          </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between space-y-0 pb-2">
+              <p className="text-sm font-medium">Pending</p>
+              <Clock className="h-4 w-4 text-muted-foreground" />
+            </div>
             <div className="text-2xl font-bold">{stats.pending}</div>
-            <p className="text-xs text-muted-foreground">Awaiting action</p>
+            <p className="text-xs text-muted-foreground">
+              Reports awaiting action
+            </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">In Progress</CardTitle>
-            <AlertCircle className="h-4 w-4 text-orange-600" />
-          </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between space-y-0 pb-2">
+              <p className="text-sm font-medium">In Progress</p>
+              <Activity className="h-4 w-4 text-muted-foreground" />
+            </div>
             <div className="text-2xl font-bold">{stats.inProgress}</div>
-            <p className="text-xs text-muted-foreground">Currently working</p>
+            <p className="text-xs text-muted-foreground">
+              Currently working on
+            </p>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Resolved</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between space-y-0 pb-2">
+              <p className="text-sm font-medium">Completed</p>
+              <CheckCircle className="h-4 w-4 text-muted-foreground" />
+            </div>
             <div className="text-2xl font-bold">{stats.resolved}</div>
-            <p className="text-xs text-muted-foreground">Completed</p>
+            <p className="text-xs text-muted-foreground">
+              Successfully resolved
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between space-y-0 pb-2">
+              <p className="text-sm font-medium">Total Assigned</p>
+              <Target className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div className="text-2xl font-bold">{stats.total}</div>
+            <p className="text-xs text-muted-foreground">
+              All time assignments
+            </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Worker Profile Card */}
+      {/* Summary Cards */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Worker Profile</CardTitle>
+            <Mail className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <Mail className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm">{workerProfile.email}</span>
+              </div>
+              {workerProfile.phone && (
+                <div className="flex items-center space-x-2">
+                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm">{workerProfile.phone}</span>
+                </div>
+              )}
+              {workerProfile.specialty && (
+                <div className="flex items-center space-x-2">
+                  <Badge variant="outline">{workerProfile.specialty}</Badge>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Performance Metrics</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span>Completion Rate</span>
+                <span className="font-medium">
+                  {stats.total > 0 ? Math.round((stats.resolved / stats.total) * 100) : 0}%
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span>Active Tasks</span>
+                <span className="font-medium">{stats.pending + stats.inProgress}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span>Status</span>
+                <Badge variant={workerProfile.is_available ? "default" : "secondary"}>
+                  {workerProfile.is_available ? "Available" : "Unavailable"}
+                </Badge>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Productivity Insights */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <User className="h-5 w-5" />
-            Your Profile & Performance
+          <CardTitle className="flex items-center space-x-2">
+            <BarChart3 className="h-5 w-5" />
+            <span>Productivity Insights</span>
           </CardTitle>
+          <CardDescription>
+            Your performance at a glance
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Profile Information */}
-            <div className="space-y-4">
-              <h4 className="font-medium text-sm text-muted-foreground">PROFILE INFORMATION</h4>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <h5 className="font-medium text-sm">Specialty</h5>
-                  <Badge variant="outline">{workerProfile.specialty || 'General'}</Badge>
-                </div>
-                <div>
-                  <h5 className="font-medium text-sm">Status</h5>
-                  <Badge variant={(workerProfile.is_available ?? false) ? "default" : "destructive"}>
-                    {(workerProfile.is_available ?? false) ? "Available" : "Unavailable"}
-                  </Badge>
-                </div>
-              </div>
-              
-                <div>
-                  <h5 className="font-medium text-sm mb-2">Current Workload</h5>
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg font-semibold">
-                      0/10
-                    </span>
-                    <div className="flex-1 bg-muted rounded-full h-3">
-                      <div
-                        className="bg-green-500 rounded-full h-3 transition-all"
-                        style={{
-                          width: '0%'
-                        }}
-                      />
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                      0%
-                    </span>
-                  </div>
-                </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-primary">{stats.total}</div>
+              <div className="text-sm text-muted-foreground">Total Assignments</div>
             </div>
-
-            {/* Performance Metrics */}
-            <div className="space-y-4">
-              <h4 className="font-medium text-sm text-muted-foreground">PERFORMANCE METRICS</h4>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <h5 className="font-medium text-sm">Total Completed</h5>
-                  <p className="text-2xl font-bold text-green-600">
-                    0
-                  </p>
-                </div>
-                <div>
-                  <h5 className="font-medium text-sm">Performance Rating</h5>
-                  <div className="flex items-center gap-1">
-                    <TrendingUp className="h-4 w-4 text-green-500" />
-                    <span className="text-lg font-semibold">
-                      N/A
-                    </span>
-                  </div>
-                </div>
-                <div>
-                  <h5 className="font-medium text-sm">Avg. Completion Time</h5>
-                  <p className="text-lg font-semibold">
-                    N/A
-                  </p>
-                </div>
-                <div>
-                  <h5 className="font-medium text-sm">This Week</h5>
-                  <p className="text-lg font-semibold text-blue-600">
-                    {reports.filter(r => 
-                      (r.status === 'resolved' || r.status === 'closed') &&
-                      new Date(r.updated_at) >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-                    ).length} completed
-                  </p>
-                </div>
-              </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">{stats.resolved}</div>
+              <div className="text-sm text-muted-foreground">Completed Tasks</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-orange-600">{stats.pending + stats.inProgress}</div>
+              <div className="text-sm text-muted-foreground">Active Tasks</div>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Productivity Insights */}
-      {reports.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              Today's Productivity
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="text-center">
-                <p className="text-2xl font-bold text-blue-600">
-                  {reports.filter(r => 
-                    r.status === 'in_progress' &&
-                    new Date(r.updated_at).toDateString() === new Date().toDateString()
-                  ).length}
-                </p>
-                <p className="text-sm text-muted-foreground">Started Today</p>
-              </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-green-600">
-                  {reports.filter(r => 
-                    (r.status === 'resolved' || r.status === 'closed') &&
-                    new Date(r.updated_at).toDateString() === new Date().toDateString()
-                  ).length}
-                </p>
-                <p className="text-sm text-muted-foreground">Completed Today</p>
-              </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-orange-600">
-                  {reports.filter(r => 
-                    r.status === 'acknowledged' &&
-                    new Date(r.created_at) < new Date(Date.now() - 24 * 60 * 60 * 1000)
-                  ).length}
-                </p>
-                <p className="text-sm text-muted-foreground">Overdue (&gt;24h)</p>
-              </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-purple-600">
-                  {reports.filter(r => r.priority === 'high' && r.status !== 'resolved' && r.status !== 'closed').length}
-                </p>
-                <p className="text-sm text-muted-foreground">High Priority</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Filters */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
+          <CardTitle className="flex items-center space-x-2">
             <Filter className="h-5 w-5" />
-            Assigned Reports
+            <span>Filter & Search Reports</span>
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search reports..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
-              />
+          <div className="flex flex-wrap gap-4 items-center">
+            <div className="flex-1 min-w-[200px]">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search reports..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
             </div>
-
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger>
+              <SelectTrigger className="w-[140px]">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="acknowledged">Acknowledged</SelectItem>
                 <SelectItem value="in_progress">In Progress</SelectItem>
                 <SelectItem value="resolved">Resolved</SelectItem>
                 <SelectItem value="closed">Closed</SelectItem>
               </SelectContent>
             </Select>
-
             <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-              <SelectTrigger>
+              <SelectTrigger className="w-[140px]">
                 <SelectValue placeholder="Priority" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Priorities</SelectItem>
+                <SelectItem value="all">All Priority</SelectItem>
+                <SelectItem value="critical">Critical</SelectItem>
                 <SelectItem value="high">High</SelectItem>
                 <SelectItem value="medium">Medium</SelectItem>
                 <SelectItem value="low">Low</SelectItem>
               </SelectContent>
             </Select>
-
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger>
+            <Select value={`${sortBy}-${sortOrder}`} onValueChange={(value) => {
+              const [field, order] = value.split('-');
+              setSortBy(field as any);
+              setSortOrder(order as any);
+            }}>
+              <SelectTrigger className="w-[160px]">
                 <SelectValue placeholder="Sort by" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="created_at">Date Created</SelectItem>
-                <SelectItem value="updated_at">Last Updated</SelectItem>
-                <SelectItem value="priority">Priority</SelectItem>
-                <SelectItem value="status">Status</SelectItem>
-                <SelectItem value="report_number">Report Number</SelectItem>
+                <SelectItem value="created_at-desc">Newest First</SelectItem>
+                <SelectItem value="created_at-asc">Oldest First</SelectItem>
+                <SelectItem value="priority-desc">High Priority</SelectItem>
+                <SelectItem value="priority-asc">Low Priority</SelectItem>
+                <SelectItem value="status-asc">Status A-Z</SelectItem>
+                <SelectItem value="status-desc">Status Z-A</SelectItem>
               </SelectContent>
             </Select>
-
-            <Select value={sortOrder} onValueChange={(value: "asc" | "desc") => setSortOrder(value)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Order" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="desc">Newest First</SelectItem>
-                <SelectItem value="asc">Oldest First</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Button
-              variant="outline"
-              onClick={() => {
-                setSearchTerm("");
-                setStatusFilter("all");
-                setPriorityFilter("all");
-                setSortBy("created_at");
-                setSortOrder("desc");
-              }}
-            >
-              Clear All
-            </Button>
           </div>
         </CardContent>
       </Card>
@@ -749,111 +683,79 @@ const WorkerDashboard = () => {
       {/* Reports List */}
       <Card>
         <CardHeader>
-          <CardTitle>Your Assigned Reports ({filteredReports.length})</CardTitle>
+          <CardTitle>Assigned Reports ({filteredReports.length})</CardTitle>
           <CardDescription>
-            Reports assigned to you for resolution
+            Reports currently assigned to you
           </CardDescription>
         </CardHeader>
         <CardContent>
           {filteredReports.length === 0 ? (
             <div className="text-center py-8">
-              <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium mb-2">No reports found</h3>
+              <AlertCircle className="mx-auto h-12 w-12 text-muted-foreground" />
+              <h3 className="mt-4 text-lg font-semibold">No reports found</h3>
               <p className="text-muted-foreground">
-                {reports.length === 0
-                  ? "You don't have any assigned reports yet."
-                  : "No reports match your current filters."
-                }
+                {reports.length === 0 
+                  ? "You haven't been assigned any reports yet."
+                  : "No reports match your current filters."}
               </p>
             </div>
           ) : (
             <div className="space-y-4">
               {filteredReports.map((report) => (
-                <Card key={report.id} className="border-l-4 border-l-primary/20">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-medium">#{report.report_number}</h3>
-                          <Badge variant={getStatusBadgeVariant(report.status)}>
-                            {report.status.replace('_', ' ')}
-                          </Badge>
+                <Card key={report.id}>
+                  <CardContent className="pt-6">
+                    <div className="flex items-start justify-between space-x-4">
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-center space-x-2">
+                          <h3 className="font-semibold">{report.title}</h3>
+                          <Badge variant="outline">#{report.report_number}</Badge>
                           <Badge variant={getPriorityBadgeVariant(report.priority)}>
                             {report.priority}
                           </Badge>
                         </div>
-                        <h4 className="font-medium text-lg mb-1">{report.title}</h4>
-                        <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
+                        <p className="text-sm text-muted-foreground line-clamp-2">
                           {report.description}
                         </p>
+                        <div className="flex items-center space-x-4 text-sm text-muted-foreground">
+                          <div className="flex items-center space-x-1">
+                            <MapPin className="h-4 w-4" />
+                            <span className="truncate max-w-[200px]">{report.location_address}</span>
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            <Calendar className="h-4 w-4" />
+                            <span>{formatDate(report.created_at)}</span>
+                          </div>
+                          {report.profiles?.full_name && (
+                            <div className="flex items-center space-x-1">
+                              <span>Reported by: {report.profiles.full_name}</span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mb-4">
-                      <div className="flex items-center gap-1">
-                        <User className="h-3 w-3" />
-                        <span className="text-muted-foreground">Citizen:</span>
-                        <span>{report.profiles?.full_name || 'Anonymous'}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <MapPin className="h-3 w-3" />
-                        <span className="text-muted-foreground">Location:</span>
-                        <span className="truncate">{report.location_address}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        <span className="text-muted-foreground">Created:</span>
-                        <span>{formatDate(report.created_at)}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <div className="flex gap-2">
-                        {report.status === 'acknowledged' && (
-                          <>
+                      <div className="flex flex-col items-end space-y-2">
+                        <Badge variant={getStatusBadgeVariant(report.status)}>
+                          {report.status.replace('_', ' ')}
+                        </Badge>
+                        <div className="flex space-x-1">
+                          {report.status === 'acknowledged' && (
                             <Button
                               size="sm"
                               onClick={() => quickStatusUpdate(report.id, 'in_progress')}
-                              className="bg-blue-600 hover:bg-blue-700"
                             >
-                              <Clock className="h-3 w-3 mr-1" />
                               Start Work
                             </Button>
+                          )}
+                          {report.status === 'in_progress' && (
                             <Button
                               size="sm"
                               variant="outline"
                               onClick={() => quickStatusUpdate(report.id, 'resolved')}
-                              className="border-green-600 text-green-600 hover:bg-green-50"
                             >
-                              <CheckCircle className="h-3 w-3 mr-1" />
-                              Quick Resolve
+                              Mark Resolved
                             </Button>
-                          </>
-                        )}
-                        {report.status === 'in_progress' && (
-                          <Button
-                            size="sm"
-                            onClick={() => quickStatusUpdate(report.id, 'resolved')}
-                            className="bg-green-600 hover:bg-green-700"
-                          >
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Mark Resolved
-                          </Button>
-                        )}
-                        {(report.status === 'resolved' || report.status === 'closed') && (
-                          <Badge variant="outline" className="text-green-600 border-green-600">
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Completed
-                          </Badge>
-                        )}
+                          )}
+                        </div>
                       </div>
-
-                      <Button asChild size="sm" variant="outline">
-                        <Link to={`/reports/${report.id}`}>
-                          <Eye className="h-4 w-4 mr-1" />
-                          View Details
-                        </Link>
-                      </Button>
                     </div>
                   </CardContent>
                 </Card>
