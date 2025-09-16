@@ -6,10 +6,11 @@ import { toast } from "@/hooks/use-toast";
 import { 
   Building2, 
   LayoutDashboard, 
+  ClipboardList,
+  FileText,
   Bell,
   LogOut,
-  Menu,
-  ClipboardList
+  Menu
 } from "lucide-react";
 import NotificationCenter from "./NotificationCenter";
 import { NotificationPermissionPrompt, NotificationStatusIndicator } from "./NotificationProvider";
@@ -56,6 +57,7 @@ const WorkerLayout = ({ children }: WorkerLayoutProps) => {
   const navigation = [
     { name: "Dashboard", href: "/worker-dashboard", icon: LayoutDashboard },
     { name: "My Assignments", href: "/worker/assignments", icon: ClipboardList },
+    { name: "Work History", href: "/worker/reports", icon: FileText },
     { name: "Notifications", href: "/notifications", icon: Bell },
   ];
 

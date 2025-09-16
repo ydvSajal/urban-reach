@@ -10,10 +10,13 @@ import {
   AlertTriangle,
   Navigation,
   MapPin,
-  User
+  User,
+  Calendar,
+  Filter
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { Link } from "react-router-dom";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface AssignedReport {
   id: string;
@@ -27,6 +30,7 @@ interface AssignedReport {
   latitude: number | null;
   longitude: number | null;
   created_at: string;
+  resolved_at: string | null;
   images: string[] | null;
   citizen: {
     full_name: string | null;
@@ -35,16 +39,17 @@ interface AssignedReport {
   };
 }
 
-const WorkerAssignments = () => {
+const WorkerReports = () => {
   const [reports, setReports] = useState<AssignedReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
   useEffect(() => {
-    loadAssignments();
+    loadReports();
   }, []);
 
-  const loadAssignments = async () => {
+  const loadReports = async () => {
     try {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
@@ -67,12 +72,12 @@ const WorkerAssignments = () => {
         throw new Error("Worker profile not found");
       }
 
-      // Get assignments
+      // Get all reports assigned to this worker
       const { data: reportsData, error } = await supabase
         .from("reports")
         .select(`
           id, report_number, title, description, category, status, priority,
-          location_address, latitude, longitude, created_at, images, citizen_id
+          location_address, latitude, longitude, created_at, resolved_at, images, citizen_id
         `)
         .eq("assigned_worker_id", worker.id)
         .order("created_at", { ascending: false });
@@ -112,9 +117,9 @@ const WorkerAssignments = () => {
 
       setReports(reportsWithCitizen);
     } catch (error: any) {
-      console.error("Error loading assignments:", error);
+      console.error("Error loading reports:", error);
       toast({
-        title: "Error loading assignments",
+        title: "Error loading reports",
         description: error.message,
         variant: "destructive",
       });
@@ -139,6 +144,7 @@ const WorkerAssignments = () => {
       case 'acknowledged': return 'bg-yellow-100 text-yellow-800';  
       case 'in_progress': return 'bg-orange-100 text-orange-800';
       case 'resolved': return 'bg-green-100 text-green-800';
+      case 'closed': return 'bg-gray-100 text-gray-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -149,10 +155,15 @@ const WorkerAssignments = () => {
     window.open(url, '_blank');
   };
 
+  // Filter reports based on selected filters
   const filteredReports = reports.filter(report => {
-    if (filter === 'all') return true;
-    return report.status === filter;
+    const statusMatch = filter === 'all' || report.status === filter;
+    const categoryMatch = categoryFilter === 'all' || report.category === categoryFilter;
+    return statusMatch && categoryMatch;
   });
+
+  // Get unique categories for filter dropdown
+  const categories = Array.from(new Set(reports.map(r => r.category)));
 
   if (loading) {
     return (
@@ -166,35 +177,90 @@ const WorkerAssignments = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">My Assignments</h1>
-          <p className="text-muted-foreground">Manage your assigned tasks</p>
+          <h1 className="text-2xl font-bold text-foreground">My Work History</h1>
+          <p className="text-muted-foreground">All your assigned tasks and their status</p>
         </div>
       </div>
 
-      {/* Filter Buttons */}
-      <div className="flex gap-2 flex-wrap">
-        {['all', 'pending', 'acknowledged', 'in_progress', 'resolved'].map((status) => (
-          <Button
-            key={status}
-            variant={filter === status ? "default" : "outline"}
-            size="sm"
-            onClick={() => setFilter(status)}
-            className="capitalize"
-          >
-            {status === 'all' ? 'All Tasks' : status.replace('_', ' ')}
-          </Button>
-        ))}
+      {/* Filters */}
+      <div className="flex gap-4 flex-wrap">
+        <div className="flex items-center space-x-2">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          <Select value={filter} onValueChange={setFilter}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Filter by status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="acknowledged">Acknowledged</SelectItem>
+              <SelectItem value="in_progress">In Progress</SelectItem>
+              <SelectItem value="resolved">Resolved</SelectItem>
+              <SelectItem value="closed">Closed</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Filter by category" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Categories</SelectItem>
+            {categories.map((category) => (
+              <SelectItem key={category} value={category}>
+                {category}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
-      {/* Assignments List */}
+      {/* Statistics */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="pt-4">
+            <div className="text-2xl font-bold text-primary">{reports.length}</div>
+            <p className="text-xs text-muted-foreground">Total Assigned</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <div className="text-2xl font-bold text-green-600">
+              {reports.filter(r => r.status === 'resolved').length}
+            </div>
+            <p className="text-xs text-muted-foreground">Completed</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <div className="text-2xl font-bold text-orange-600">
+              {reports.filter(r => r.status === 'in_progress').length}
+            </div>
+            <p className="text-xs text-muted-foreground">In Progress</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <div className="text-2xl font-bold text-blue-600">
+              {reports.filter(r => ['pending', 'acknowledged'].includes(r.status)).length}
+            </div>
+            <p className="text-xs text-muted-foreground">Pending</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Reports List */}
       <div className="space-y-4">
         {filteredReports.length === 0 ? (
           <Card>
             <CardContent className="text-center py-8">
               <CheckCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-foreground">No assignments found</h3>
+              <h3 className="text-lg font-medium text-foreground">No reports found</h3>
               <p className="text-muted-foreground">
-                {filter === 'all' ? 'You have no assignments yet.' : `No ${filter.replace('_', ' ')} assignments.`}
+                {filter === 'all' && categoryFilter === 'all' 
+                  ? 'You have no assigned reports yet.' 
+                  : 'No reports match the selected filters.'}
               </p>
             </CardContent>
           </Card>
@@ -224,9 +290,15 @@ const WorkerAssignments = () => {
                         <span>{report.location_address}</span>
                       </div>
                       <div className="flex items-center space-x-1">
-                        <Clock className="h-4 w-4" />
-                        <span>{formatDistanceToNow(new Date(report.created_at), { addSuffix: true })}</span>
+                        <Calendar className="h-4 w-4" />
+                        <span>Assigned {formatDistanceToNow(new Date(report.created_at), { addSuffix: true })}</span>
                       </div>
+                      {report.resolved_at && (
+                        <div className="flex items-center space-x-1">
+                          <CheckCircle className="h-4 w-4" />
+                          <span>Completed {formatDistanceToNow(new Date(report.resolved_at), { addSuffix: true })}</span>
+                        </div>
+                      )}
                     </div>
 
                     {report.citizen.full_name && (
@@ -266,4 +338,4 @@ const WorkerAssignments = () => {
   );
 };
 
-export default WorkerAssignments;
+export default WorkerReports;

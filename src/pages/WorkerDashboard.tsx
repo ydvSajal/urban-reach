@@ -16,6 +16,7 @@ import {
   ClipboardList
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import WorkerMapReal from "@/components/WorkerMapReal";
 import { Link } from "react-router-dom";
 
 interface WorkerProfile {
@@ -118,21 +119,36 @@ const WorkerDashboard = () => {
         .eq("assigned_worker_id", workerId)
         .order("created_at", { ascending: false });
 
-      if (reportsError) throw reportsError;
+      if (reportsError) {
+        console.error("Reports error:", reportsError);
+        throw reportsError;
+      }
 
-      // Fetch citizen profiles for each report
+      // Fetch citizen profiles for each report with better error handling
       const reportsWithCitizen = await Promise.all(
         (reportsData || []).map(async (report) => {
-          const { data: citizen } = await supabase
-            .from("profiles")
-            .select("full_name, email, phone")
-            .eq("user_id", report.citizen_id)
-            .single();
+          try {
+            const { data: citizen, error: citizenError } = await supabase
+              .from("profiles")
+              .select("full_name, email, phone")
+              .eq("user_id", report.citizen_id)
+              .maybeSingle();
 
-          return {
-            ...report,
-            citizen: citizen || { full_name: null, email: '', phone: null }
-          };
+            if (citizenError) {
+              console.warn("Error fetching citizen profile:", citizenError);
+            }
+
+            return {
+              ...report,
+              citizen: citizen || { full_name: 'Unknown Citizen', email: '', phone: null }
+            };
+          } catch (error) {
+            console.warn("Error processing citizen data:", error);
+            return {
+              ...report,
+              citizen: { full_name: 'Unknown Citizen', email: '', phone: null }
+            };
+          }
         })
       );
 
@@ -205,10 +221,10 @@ const WorkerDashboard = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading your assignments...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading your assignments...</p>
         </div>
       </div>
     );
@@ -216,7 +232,7 @@ const WorkerDashboard = () => {
 
   if (error || !workerProfile) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="max-w-md w-full mx-4">
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
@@ -249,7 +265,17 @@ const WorkerDashboard = () => {
           </Link>
         </div>
       </div>
-      {/* Task Summary Stats */}
+      {/* Assignment Map */}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <span>📍 Your Assignments Map</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <WorkerMapReal reports={reports.filter(r => r.latitude && r.longitude)} />
+        </CardContent>
+      </Card>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <Card className="text-center">
           <CardContent className="pt-6 pb-6">

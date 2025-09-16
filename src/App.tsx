@@ -21,6 +21,8 @@ import Maps from "./pages/Maps";
 import CitizenDashboard from "./pages/CitizenDashboard";
 import WorkerDashboard from "./pages/WorkerDashboard";
 import WorkerAssignments from "./pages/WorkerAssignments";
+import WorkerTaskDetail from "./pages/WorkerTaskDetail";
+import WorkerReports from "./pages/WorkerReports";
 import SubmitReport from "./pages/SubmitReport";
 import MyReports from "./pages/MyReports";
 import NotificationSettings from "./pages/NotificationSettings";
@@ -182,6 +184,8 @@ const App = () => {
                       <>
                         <Route path="/worker-dashboard" element={<WorkerLayout><WorkerDashboard /></WorkerLayout>} />
                         <Route path="/worker/assignments" element={<WorkerLayout><WorkerAssignments /></WorkerLayout>} />
+                        <Route path="/worker/reports" element={<WorkerLayout><WorkerReports /></WorkerLayout>} />
+                        <Route path="/worker/task/:id" element={<WorkerLayout><WorkerTaskDetail /></WorkerLayout>} />
                         <Route path="/reports/:id" element={<WorkerLayout><ReportDetail /></WorkerLayout>} />
                         <Route path="/notifications" element={<WorkerLayout><NotificationSettings /></WorkerLayout>} />
                       </>
