@@ -67,8 +67,8 @@ const AuthForm = ({ onSuccess, userType }: AuthFormProps) => {
       return;
     }
 
-    // Role-specific email validation
-    if (userType === 'admin' && !email.includes('@bennett.edu.in') && email !== 'sajalkumar1765@gmail.com') {
+    // Role-specific email validation (remove hardcoded admin bypass)  
+    if (userType === 'admin' && !email.includes('@bennett.edu.in')) {
       setError("Admin access is restricted to Bennett University emails only");
       return;
     }

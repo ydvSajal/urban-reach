@@ -27,12 +27,12 @@ const CitizenLayout = ({ children }: CitizenLayoutProps) => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       setUserEmail(user?.email ?? null);
     });
   }, []);
-  const isDev = userEmail === "sajalkumar1765@gmail.com";
 
   const handleSignOut = async () => {
     try {
@@ -156,17 +156,7 @@ const CitizenLayout = ({ children }: CitizenLayoutProps) => {
         </main>
       </div>
 
-      {isDev && (
-        <Button
-          variant="secondary"
-          size="sm"
-          className="fixed bottom-4 right-4 z-50"
-          onClick={() => navigate("/dashboard")}
-          aria-label="Switch to Admin View (Dev Only)"
-        >
-          Dev: Admin View
-        </Button>
-      )}
+      {/* Remove the dev switcher since we have proper role-based routing now */}
     </div>
   );
 };

@@ -29,12 +29,12 @@ const Layout = ({ children, userRole }: LayoutProps) => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
       setUserEmail(user?.email ?? null);
     });
   }, []);
-  const isDev = userEmail === "sajalkumar1765@gmail.com";
 
   const handleSignOut = async () => {
     try {
@@ -153,13 +153,13 @@ const Layout = ({ children, userRole }: LayoutProps) => {
         </main>
       </div>
 
-      {isDev && (
+      {userRole === 'admin' && (
         <Button
           variant="secondary"
           size="sm"
           className="fixed bottom-4 right-4 z-50"
           onClick={() => navigate("/citizen-dashboard")}
-          aria-label="Switch to Citizen View (Dev Only)"
+          aria-label="Switch to Citizen View (Dev Mode)"
         >
           Dev: Citizen View
         </Button>
