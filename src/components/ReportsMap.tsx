@@ -59,35 +59,38 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
 
-    try {
-      const map = L.map(mapRef.current, {
-        zoomControl: true,
-        attributionControl: true,
-      }).setView([28.4645, 77.5173], 12);
+    const map = L.map(mapRef.current, {
+      zoomControl: true,
+      attributionControl: true,
+    }).setView([28.4645, 77.5173], 12);
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 19,
-        crossOrigin: true,
-      }).addTo(map);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      maxZoom: 19,
+    }).addTo(map);
 
-      mapInstanceRef.current = map;
+    mapInstanceRef.current = map;
 
-      // Important: make sure map resizes correctly
-      setTimeout(() => {
-        map.invalidateSize();
-      }, 100);
-    } catch (error) {
-      console.error("Error initializing map:", error);
-    }
+    // Force redraw once mounted
+    setTimeout(() => map.invalidateSize(), 200);
 
     return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      }
+      // ❌ don't remove map here - let it stay alive
     };
+  }, []);
+
+  // Fix rendering when coming back - ResizeObserver for auto-repaint
+  useEffect(() => {
+    if (!mapRef.current || !mapInstanceRef.current) return;
+
+    const observer = new ResizeObserver(() => {
+      mapInstanceRef.current?.invalidateSize();
+    });
+
+    observer.observe(mapRef.current);
+
+    return () => observer.disconnect();
   }, []);
 
   // Load reports
@@ -104,6 +107,17 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
       }, 100);
     }
   }, [filteredReports, loading]);
+
+  // Optional: Auto-refresh markers every 30 seconds (can be removed if not needed)
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    
+    const interval = setInterval(() => {
+      addMarkersToMap(); // redraw markers only, not whole map
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [filteredReports]);
 
   // Apply filters when reports or filters change
   useEffect(() => {
