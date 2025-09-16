@@ -24,10 +24,8 @@ import {
   Phone, 
   Mail, 
   Calendar,
-  ArrowUpDown,
   Search,
   Filter,
-  BarChart3,
   Activity,
   Target,
   TrendingUp,
@@ -672,34 +670,6 @@ const WorkerDashboard = () => {
         </Card>
       </div>
 
-      {/* Productivity Insights */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <BarChart3 className="h-5 w-5" />
-            <span>Productivity Insights</span>
-          </CardTitle>
-          <CardDescription>
-            Your performance at a glance
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="text-center">
-              <div className="text-2xl font-bold text-primary">{stats.total}</div>
-              <div className="text-sm text-muted-foreground">Total Assignments</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">{stats.resolved}</div>
-              <div className="text-sm text-muted-foreground">Completed Tasks</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-orange-600">{stats.pending + stats.inProgress}</div>
-              <div className="text-sm text-muted-foreground">Active Tasks</div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* Filters */}
       <Card>
