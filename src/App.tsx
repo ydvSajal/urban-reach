@@ -68,12 +68,22 @@ const App = () => {
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        // Add a small delay to ensure profile is created after successful OTP verification
-        setTimeout(async () => {
-          const profile = await fetchUserProfile(session.user.id);
-          setUserProfile(profile);
-          setLoading(false);
-        }, 500);
+        // Fetch profile immediately, with retries to handle timing issues
+        let retries = 3;
+        let profile = null;
+        
+        while (retries > 0 && !profile) {
+          profile = await fetchUserProfile(session.user.id);
+          if (!profile) {
+            retries--;
+            if (retries > 0) {
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+          }
+        }
+        
+        setUserProfile(profile);
+        setLoading(false);
       } else {
         setUserProfile(null);
         setLoading(false);
@@ -105,7 +115,7 @@ const App = () => {
     }
   };
 
-  if (loading) {
+  if (loading || (user && !userProfile)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
