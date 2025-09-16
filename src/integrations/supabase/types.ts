@@ -134,6 +134,7 @@ export type Database = {
           assigned_worker_id: string | null
           category: Database["public"]["Enums"]["report_category"]
           citizen_id: string
+          completion_photos: string[] | null
           council_id: string
           created_at: string
           description: string
@@ -153,6 +154,7 @@ export type Database = {
           assigned_worker_id?: string | null
           category: Database["public"]["Enums"]["report_category"]
           citizen_id: string
+          completion_photos?: string[] | null
           council_id: string
           created_at?: string
           description: string
@@ -172,6 +174,7 @@ export type Database = {
           assigned_worker_id?: string | null
           category?: Database["public"]["Enums"]["report_category"]
           citizen_id?: string
+          completion_photos?: string[] | null
           council_id?: string
           created_at?: string
           description?: string
@@ -200,6 +203,51 @@ export type Database = {
             columns: ["council_id"]
             isOneToOne: false
             referencedRelation: "councils"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      work_completions: {
+        Row: {
+          completed_at: string
+          completion_notes: string | null
+          completion_photos: string[] | null
+          created_at: string
+          id: string
+          report_id: string
+          worker_id: string
+        }
+        Insert: {
+          completed_at?: string
+          completion_notes?: string | null
+          completion_photos?: string[] | null
+          created_at?: string
+          id?: string
+          report_id: string
+          worker_id: string
+        }
+        Update: {
+          completed_at?: string
+          completion_notes?: string | null
+          completion_photos?: string[] | null
+          created_at?: string
+          id?: string
+          report_id?: string
+          worker_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_completions_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_completions_worker_id_fkey"
+            columns: ["worker_id"]
+            isOneToOne: false
+            referencedRelation: "workers"
             referencedColumns: ["id"]
           },
         ]
