@@ -20,6 +20,7 @@ import Analytics from "./pages/Analytics";
 import Maps from "./pages/Maps";
 import CitizenDashboard from "./pages/CitizenDashboard";
 import WorkerDashboard from "./pages/WorkerDashboard";
+import WorkerAssignments from "./pages/WorkerAssignments";
 import SubmitReport from "./pages/SubmitReport";
 import MyReports from "./pages/MyReports";
 import NotificationSettings from "./pages/NotificationSettings";
@@ -180,6 +181,7 @@ const App = () => {
                     {userRole === 'worker' && (
                       <>
                         <Route path="/worker-dashboard" element={<WorkerLayout><WorkerDashboard /></WorkerLayout>} />
+                        <Route path="/worker/assignments" element={<WorkerLayout><WorkerAssignments /></WorkerLayout>} />
                         <Route path="/reports/:id" element={<WorkerLayout><ReportDetail /></WorkerLayout>} />
                         <Route path="/notifications" element={<WorkerLayout><NotificationSettings /></WorkerLayout>} />
                       </>
