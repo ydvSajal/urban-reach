@@ -1,25 +1,13 @@
-import { useEffect, useRef, useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { MapPin, Loader2, Filter, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import LeafletMap from "./LeafletMap";
 import L from "leaflet";
-import "leaflet/dist/leaflet.css";
 import "./ReportsMap.css";
-
-// Fix for default markers
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41]
-});
 
 interface Report {
   id: string;
@@ -47,82 +35,44 @@ interface MapFilters {
 }
 
 const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
-  const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
+  const markersLayerRef = useRef<L.LayerGroup | null>(null);
   const [reports, setReports] = useState<Report[]>([]);
   const [filteredReports, setFilteredReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<MapFilters>({ status: "all", category: "all", priority: "all" });
   const [showFilters, setShowFilters] = useState(false);
 
-  // Initialize map
-  useEffect(() => {
-    if (!mapRef.current || mapInstanceRef.current) return;
-
-    const map = L.map(mapRef.current, {
-      zoomControl: true,
-      attributionControl: true,
-    }).setView([28.4645, 77.5173], 12);
-
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      maxZoom: 19,
-    }).addTo(map);
-
+  // Handle map ready
+  const handleMapReady = (map: L.Map) => {
+    console.log('Map is ready!');
     mapInstanceRef.current = map;
-
-    // Force redraw once mounted
-    setTimeout(() => map.invalidateSize(), 200);
-
-    return () => {
-      // ❌ don't remove map here - let it stay alive
-    };
-  }, []);
-
-  // Fix rendering when coming back - ResizeObserver for auto-repaint
-  useEffect(() => {
-    if (!mapRef.current || !mapInstanceRef.current) return;
-
-    const observer = new ResizeObserver(() => {
-      mapInstanceRef.current?.invalidateSize();
-    });
-
-    observer.observe(mapRef.current);
-
-    return () => observer.disconnect();
-  }, []);
+    
+    // Create markers layer group
+    markersLayerRef.current = L.layerGroup().addTo(map);
+    
+    // Add markers if we have reports
+    if (filteredReports.length > 0) {
+      addMarkersToMap();
+    }
+  };
 
   // Load reports
   useEffect(() => {
     loadReports();
   }, []);
 
-  // Add markers when filtered reports change
-  useEffect(() => {
-    if (mapInstanceRef.current && !loading) {
-      // Small delay to ensure map is fully rendered
-      setTimeout(() => {
-        addMarkersToMap();
-      }, 100);
-    }
-  }, [filteredReports, loading]);
-
-  // Optional: Auto-refresh markers every 30 seconds (can be removed if not needed)
-  useEffect(() => {
-    if (!mapInstanceRef.current) return;
-    
-    const interval = setInterval(() => {
-      addMarkersToMap(); // redraw markers only, not whole map
-    }, 30000);
-
-    return () => clearInterval(interval);
-  }, [filteredReports]);
-
   // Apply filters when reports or filters change
   useEffect(() => {
     applyFilters();
   }, [reports, filters]);
+
+  // Add markers when filtered reports change
+  useEffect(() => {
+    if (mapInstanceRef.current && markersLayerRef.current) {
+      addMarkersToMap();
+    }
+  }, [filteredReports]);
 
   const loadReports = async () => {
     try {
@@ -148,6 +98,7 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
       const { data, error } = await query;
       if (error) throw error;
       
+      console.log('Loaded reports:', data?.length || 0);
       setReports(data || []);
     } catch (error: any) {
       console.error("Error loading reports:", error);
@@ -176,6 +127,7 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
       filtered = filtered.filter(report => report.priority === filters.priority);
     }
 
+    console.log('Filtered reports:', filtered.length, 'of', reports.length);
     setFilteredReports(filtered);
   };
 
@@ -187,19 +139,15 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
   };
 
   const addMarkersToMap = () => {
-    if (!mapInstanceRef.current) {
-      console.log('Map not ready for markers');
+    if (!mapInstanceRef.current || !markersLayerRef.current) {
+      console.log('Map or markers layer not ready');
       return;
     }
 
-    console.log('Adding markers for', filteredReports.length, 'filtered reports');
+    console.log('Adding markers for', filteredReports.length, 'reports');
 
     // Clear existing markers
-    mapInstanceRef.current.eachLayer(layer => {
-      if (layer instanceof L.Marker) {
-        mapInstanceRef.current!.removeLayer(layer);
-      }
-    });
+    markersLayerRef.current.clearLayers();
 
     // Add markers for each report
     filteredReports.forEach((report) => {
@@ -236,23 +184,21 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
       `;
       
       marker.bindPopup(popupContent);
-      marker.addTo(mapInstanceRef.current);
+      markersLayerRef.current!.addLayer(marker);
     });
 
     // Fit map bounds to show all markers
-    if (filteredReports.length > 0) {
-      const group = new L.FeatureGroup(
-        filteredReports
-          .filter(r => r.latitude && r.longitude)
-          .map(r => L.marker([r.latitude, r.longitude]))
-      );
+    if (filteredReports.length > 0 && mapInstanceRef.current) {
+      const markers = filteredReports
+        .filter(r => r.latitude && r.longitude)
+        .map(r => L.marker([r.latitude, r.longitude]));
       
-      if (group.getBounds().isValid()) {
-        mapInstanceRef.current.fitBounds(group.getBounds().pad(0.1));
+      if (markers.length > 0) {
+        const group = new L.FeatureGroup(markers);
+        if (group.getBounds().isValid()) {
+          mapInstanceRef.current.fitBounds(group.getBounds().pad(0.1));
+        }
       }
-    } else {
-      // Center on default location when no reports
-      mapInstanceRef.current.setView([28.4645, 77.5173], 12);
     }
   };
 
@@ -264,8 +210,6 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
       </div>
     );
   }
-
-  // Show empty map even when no reports
 
   const uniqueStatuses = [...new Set(reports.map(r => r.status))].filter(Boolean);
   const uniqueCategories = [...new Set(reports.map(r => r.category))].filter(Boolean);
@@ -367,10 +311,10 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
 
       {/* Map Section */}
       <div className="relative bg-background border rounded-lg overflow-hidden" style={{ height }}>
-        <div 
-          ref={mapRef} 
+        <LeafletMap
           className="w-full h-full"
           style={{ height: '100%', minHeight: '400px' }}
+          onMapReady={handleMapReady}
         />
         {reports.length === 0 && !loading && (
           <div className="absolute inset-0 flex items-center justify-center bg-background/90 backdrop-blur-sm">
