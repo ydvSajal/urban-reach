@@ -16,7 +16,7 @@ import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 
 interface AuthFormProps {
   onSuccess: () => void;
-  userType: 'admin' | 'citizen';
+  userType: 'admin' | 'citizen' | 'worker';
 }
 
 const AuthForm = ({ onSuccess, userType }: AuthFormProps) => {

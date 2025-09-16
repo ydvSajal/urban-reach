@@ -18,15 +18,21 @@ const Index = () => {
             Streamline your municipal operations with our comprehensive administrative platform.
             Manage reports, track progress, and engage with citizens efficiently.
           </p>
-          <div className="flex gap-4 justify-center">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/auth/admin">
-              <Button size="lg" className="font-semibold">
+              <Button size="lg" className="font-semibold w-full sm:w-auto">
                 <Shield className="mr-2 h-4 w-4" />
                 Admin Login
               </Button>
             </Link>
+            <Link to="/auth/worker">
+              <Button variant="secondary" size="lg" className="w-full sm:w-auto">
+                <Users className="mr-2 h-4 w-4" />
+                Worker Login
+              </Button>
+            </Link>
             <Link to="/auth/citizen">
-              <Button variant="outline" size="lg">
+              <Button variant="outline" size="lg" className="w-full sm:w-auto">
                 <UserCheck className="mr-2 h-4 w-4" />
                 Citizen Login
               </Button>

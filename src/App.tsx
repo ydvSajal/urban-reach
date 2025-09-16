@@ -177,6 +177,15 @@ const App = () => {
                   } 
                 />
                 <Route 
+                  path="/auth/worker" 
+                  element={
+                    <Auth 
+                      userType="worker" 
+                      onSuccess={() => window.location.href = '/worker-dashboard'} 
+                    />
+                  } 
+                />
+                <Route 
                   path="/auth/citizen" 
                   element={
                     <Auth 

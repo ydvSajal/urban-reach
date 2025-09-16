@@ -147,7 +147,7 @@ const TestDataInserter = () => {
         ...report,
         citizen_id: user.id,
         council_id: BENNETT_UNIVERSITY_ID,
-        // Don't include report_number - let the database trigger generate it
+        report_number: '', // Will be overwritten by database trigger
       }));
 
       const { data, error } = await supabase

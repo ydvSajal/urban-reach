@@ -1,7 +1,7 @@
 import AuthForm from "@/components/AuthForm";
 
 interface AuthProps {
-  userType: 'admin' | 'citizen';
+  userType: 'admin' | 'citizen' | 'worker';
   onSuccess: () => void;
 }
 
