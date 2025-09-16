@@ -59,12 +59,19 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
     
-    // Use a timeout to ensure the container has proper dimensions
-    const timeout = setTimeout(() => {
+    const initializeMap = () => {
       if (!mapRef.current) return;
       
+      // Check if container has dimensions
+      const rect = mapRef.current.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) {
+        console.log('Container not ready, retrying...');
+        setTimeout(initializeMap, 100);
+        return;
+      }
+      
       try {
-        console.log('Initializing map with container:', mapRef.current);
+        console.log('Initializing map with container dimensions:', rect);
         
         const map = L.map(mapRef.current, {
           zoomControl: true,
@@ -74,25 +81,31 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
           maxZoom: 19,
+          crossOrigin: true
         }).addTo(map);
         
         mapInstanceRef.current = map;
         console.log('Map initialized successfully');
         
-        // Force a size invalidation after a short delay
-        setTimeout(() => {
-          if (mapInstanceRef.current) {
-            mapInstanceRef.current.invalidateSize();
-          }
-        }, 100);
+        // Ensure proper sizing
+        map.invalidateSize(true);
         
       } catch (error) {
         console.error('Error initializing map:', error);
       }
-    }, 100);
+    };
+    
+    // Start initialization immediately, but also ensure DOM is ready
+    if (document.readyState === 'complete') {
+      initializeMap();
+    } else {
+      document.addEventListener('DOMContentLoaded', initializeMap);
+      // Also try after a short delay as fallback
+      setTimeout(initializeMap, 200);
+    }
 
     return () => {
-      clearTimeout(timeout);
+      document.removeEventListener('DOMContentLoaded', initializeMap);
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
@@ -107,10 +120,13 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
 
   // Add markers when filtered reports change
   useEffect(() => {
-    if (mapInstanceRef.current && reports.length > 0) {
-      addMarkersToMap();
+    if (mapInstanceRef.current && !loading) {
+      // Small delay to ensure map is fully rendered
+      setTimeout(() => {
+        addMarkersToMap();
+      }, 100);
     }
-  }, [filteredReports]);
+  }, [filteredReports, loading]);
 
   // Apply filters when reports or filters change
   useEffect(() => {
@@ -180,7 +196,12 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
   };
 
   const addMarkersToMap = () => {
-    if (!mapInstanceRef.current || !filteredReports.length) return;
+    if (!mapInstanceRef.current) {
+      console.log('Map not ready for markers');
+      return;
+    }
+
+    console.log('Adding markers for', filteredReports.length, 'filtered reports');
 
     // Clear existing markers
     mapInstanceRef.current.eachLayer(layer => {
@@ -238,6 +259,9 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
       if (group.getBounds().isValid()) {
         mapInstanceRef.current.fitBounds(group.getBounds().pad(0.1));
       }
+    } else {
+      // Center on default location when no reports
+      mapInstanceRef.current.setView([28.4645, 77.5173], 12);
     }
   };
 
