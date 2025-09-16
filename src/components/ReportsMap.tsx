@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import "./ReportsMap.css";
 
 // Global error handler for Select empty value errors
 const originalError = console.error;
@@ -92,7 +93,7 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
         attributionControl: true,
         // Ensure proper initialization
         renderer: L.svg()
-      }).setView([28.4509, 77.5847], 13);
+      }).setView([28.4645, 77.5173], 14); // Bennett University coordinates with higher zoom
       
       // Add tile layer with proper configuration and fallback
       const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -401,7 +402,7 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
       }
     } else {
       // If no filtered reports, center on Bennett University
-      mapInstanceRef.current!.setView([28.4509, 77.5847], 13);
+      mapInstanceRef.current!.setView([28.4645, 77.5173], 14);
     }
   };
 
@@ -442,6 +443,15 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
             </div>
           </CardContent>
         </Card>
+        
+        {/* Show empty map even when no reports */}
+        <div className={`relative bg-background border rounded-lg overflow-hidden ${className}`} style={{height}}>
+          <div 
+            ref={mapRef} 
+            className="w-full h-full min-h-[400px]"
+            style={{ height: '100%' }}
+          />
+        </div>
         
         <div className="bg-muted rounded-lg flex items-center justify-center" style={{ height }}>
           <div className="text-center">

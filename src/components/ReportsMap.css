@@ -68,6 +68,13 @@
   border: none !important;
 }
 
+/* Ensure map container has proper dimensions */
+.leaflet-container {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 400px !important;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .report-popup {
