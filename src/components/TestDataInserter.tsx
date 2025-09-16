@@ -61,7 +61,7 @@ const TestDataInserter = () => {
     }
   ];
 
-  const insertTestData = async () => {
+  const insertDemoData = async () => {
     setLoading(true);
     try {
       // Get current user
@@ -158,14 +158,14 @@ const TestDataInserter = () => {
       if (error) throw error;
 
       toast({
-        title: "Test data inserted successfully!",
-        description: `${data.length} test reports have been added to the database.`,
+        title: "Demo data created successfully!",
+        description: `${data.length} demo reports have been added to the system.`,
       });
 
     } catch (error: any) {
       console.error("Error inserting test data:", error);
       toast({
-        title: "Error inserting test data",
+        title: "Error creating demo data",
         description: error.message,
         variant: "destructive",
       });
@@ -182,12 +182,12 @@ const TestDataInserter = () => {
           Test Data
         </CardTitle>
         <CardDescription>
-          Add sample reports to test the map functionality
+          Create sample reports to test the map and reports functionality
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="text-sm text-muted-foreground">
-          <p>This will add {testReports.length} sample reports with location data to help test the map functionality.</p>
+          <p>This will create {testReports.length} sample reports with location data to help test the system.</p>
           <ul className="list-disc list-inside mt-2 space-y-1">
             {testReports.map((report, index) => (
               <li key={index} className="text-xs">
@@ -198,7 +198,7 @@ const TestDataInserter = () => {
         </div>
         
         <Button 
-          onClick={insertTestData} 
+          onClick={insertDemoData} 
           disabled={loading}
           className="w-full"
         >
@@ -209,8 +209,8 @@ const TestDataInserter = () => {
             </>
           ) : (
             <>
-              <MapPin className="mr-2 h-4 w-4" />
-              Add Test Reports
+              <Database className="mr-2 h-4 w-4" />
+              Create Demo Reports
             </>
           )}
         </Button>

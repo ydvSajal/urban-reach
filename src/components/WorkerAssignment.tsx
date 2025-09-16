@@ -57,7 +57,7 @@ const WorkerAssignment: React.FC<WorkerAssignmentProps> = ({
 }) => {
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [filteredWorkers, setFilteredWorkers] = useState<Worker[]>([]);
-  const [selectedWorkerId, setSelectedWorkerId] = useState<string>(currentAssignee?.id || '');
+  const [selectedWorkerId, setSelectedWorkerId] = useState<string>(currentAssignee?.id || 'unassigned');
   const [loading, setLoading] = useState(true);
   const [assigning, setAssigning] = useState(false);
   const [filterBy, setFilterBy] = useState<'all' | 'available' | 'specialty'>('specialty');
@@ -165,7 +165,7 @@ const WorkerAssignment: React.FC<WorkerAssignmentProps> = ({
   };
 
   const handleAssign = async () => {
-    if (!selectedWorkerId) {
+    if (!selectedWorkerId || selectedWorkerId === 'unassigned') {
       // Unassign
       setAssigning(true);
       try {
@@ -297,7 +297,7 @@ const WorkerAssignment: React.FC<WorkerAssignmentProps> = ({
               <SelectValue placeholder="Choose a worker or leave unassigned" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Unassigned</SelectItem>
+              <SelectItem value="unassigned">Unassigned</SelectItem>
               {filteredWorkers.map((worker) => (
                 <SelectItem key={worker.id} value={worker.id}>
                   <div className="flex items-center gap-2">
@@ -313,7 +313,7 @@ const WorkerAssignment: React.FC<WorkerAssignmentProps> = ({
         </div>
 
         {/* Worker Details */}
-        {selectedWorkerId && (
+        {selectedWorkerId && selectedWorkerId !== 'unassigned' && (
           <div className="space-y-3">
             {(() => {
               const selectedWorker = workers.find(w => w.id === selectedWorkerId);
@@ -368,12 +368,12 @@ const WorkerAssignment: React.FC<WorkerAssignmentProps> = ({
         {/* Assignment Button */}
         <Button 
           onClick={handleAssign}
-          disabled={disabled || assigning || selectedWorkerId === (currentAssignee?.id || '')}
+          disabled={disabled || assigning || selectedWorkerId === (currentAssignee?.id || 'unassigned')}
           className="w-full"
         >
           {assigning && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {selectedWorkerId 
-            ? (selectedWorkerId === (currentAssignee?.id || '') ? 'Already Assigned' : 'Assign Worker')
+          {selectedWorkerId && selectedWorkerId !== 'unassigned'
+            ? (selectedWorkerId === (currentAssignee?.id || 'unassigned') ? 'Already Assigned' : 'Assign Worker')
             : 'Unassign Worker'
           }
         </Button>

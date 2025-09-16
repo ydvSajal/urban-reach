@@ -130,12 +130,11 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
         }
       });
       
-      // Ensure proper sizing
+      // Optimize loading with shorter timeouts and immediate sizing
       setTimeout(() => {
         map.invalidateSize();
-        console.log('Map initialized and resized');
         setMapReady(true);
-      }, 200);
+      }, 100);
       
       mapInstanceRef.current = map;
     };
