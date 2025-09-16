@@ -72,114 +72,46 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
     
-    // Wait for the container to be visible and have dimensions
     const initializeMap = () => {
       if (!mapRef.current) return;
       
-      const container = mapRef.current;
-      const rect = container.getBoundingClientRect();
+      console.log('Initializing map...');
       
-      // Better dimension checking - handle empty rect objects
-      const hasValidDimensions = rect && 
-        typeof rect.width === 'number' && 
-        typeof rect.height === 'number' && 
-        rect.width > 0 && 
-        rect.height > 0;
-      
-      if (!hasValidDimensions) {
-        console.log('Container not ready, retrying...', rect);
-        setTimeout(initializeMap, 100);
-        return;
-      }
-      
-      console.log('Initializing map with container size:', rect.width, 'x', rect.height);
-      
-      const map = L.map(container, {
-        preferCanvas: false,
-        zoomControl: true,
-        attributionControl: true,
-        // Ensure proper initialization
-        renderer: L.svg()
-      }).setView([28.4645, 77.5173], 14); // Bennett University coordinates with higher zoom
-      
-      // Add tile layer with proper configuration and fallback
-      const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 19,
-        subdomains: ['a', 'b', 'c'],
-        errorTileUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjU2IiBoZWlnaHQ9IjI1NiIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjU2IiBoZWlnaHQ9IjI1NiIgZmlsbD0iI2Y5ZmFmYiIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LWZhbWlseT0ic2Fucy1zZXJpZiIgZm9udC1zaXplPSIxNiIgZmlsbD0iIzZiNzI4MCI+TWFwIGxvYWRpbmc8L3RleHQ+PC9zdmc+',
-        // Improved reliability options
-        crossOrigin: true,
-        detectRetina: true
-      });
-      
-      tileLayer.addTo(map);
-      
-      // Add event listeners to debug tile loading
-      tileLayer.on('loading', () => console.log('Tiles loading...'));
-      tileLayer.on('load', () => {
-        console.log('Tiles loaded successfully');
-        // Force a resize after tiles load
-        setTimeout(() => map.invalidateSize(), 50);
-      });
-      tileLayer.on('tileerror', (e) => {
-        console.error('Tile error:', e);
-        // Try alternative tile server if primary fails
-        console.log('Attempting to use alternative tile server...');
-        
-        // Add fallback tile layer
-        const fallbackLayer = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png', {
-          attribution: '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>',
-          maxZoom: 19
-        });
-        
-        if (mapInstanceRef.current && !mapInstanceRef.current.hasLayer(fallbackLayer)) {
-          fallbackLayer.addTo(mapInstanceRef.current);
-        }
-      });
-      
-      // Optimize loading with shorter timeouts and immediate sizing
-      setTimeout(() => {
-        map.invalidateSize();
-        setMapReady(true);
-      }, 100);
-      
-      mapInstanceRef.current = map;
-    };
-    
-    // Start initialization immediately
-    initializeMap();
-    
-    // Also add a fallback timer in case dimensions never properly load
-    const fallbackTimer = setTimeout(() => {
-      if (!mapInstanceRef.current && mapRef.current) {
-        console.log('Fallback initialization triggered');
-        // Force initialization even if dimensions aren't perfect
-        const container = mapRef.current;
-        const map = L.map(container, {
+      try {
+        const map = L.map(mapRef.current, {
           preferCanvas: false,
           zoomControl: true,
           attributionControl: true,
-          renderer: L.svg()
         }).setView([28.4645, 77.5173], 14);
         
         const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-          maxZoom: 19
+          maxZoom: 19,
         });
         
         tileLayer.addTo(map);
         mapInstanceRef.current = map;
         
-        setTimeout(() => {
-          map.invalidateSize();
-          setMapReady(true);
-        }, 200);
+        // Set map ready immediately after creation
+        setMapReady(true);
+        
+        // Invalidate size after a short delay to ensure proper rendering
+        requestAnimationFrame(() => {
+          if (mapInstanceRef.current) {
+            mapInstanceRef.current.invalidateSize();
+          }
+        });
+        
+      } catch (error) {
+        console.error('Error initializing map:', error);
+        setMapReady(true); // Still set ready to prevent infinite loading
       }
-    }, 2000);
+    };
+    
+    // Use requestAnimationFrame for better timing
+    requestAnimationFrame(initializeMap);
 
     return () => {
-      clearTimeout(fallbackTimer);
       if (mapInstanceRef.current) {
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
@@ -192,25 +124,14 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
     loadReports();
   }, []);
 
-  // Debug effect to check map container dimensions
+  // Invalidate map size when reports change
   useEffect(() => {
-    if (mapRef.current) {
-      const checkDimensions = () => {
-        const rect = mapRef.current?.getBoundingClientRect();
-        console.log('Map container dimensions:', rect);
-        if (mapInstanceRef.current && rect) {
-          mapInstanceRef.current.invalidateSize();
-        }
-      };
-      
-      checkDimensions();
-      
-      // Check again after a delay
-      const timer = setTimeout(checkDimensions, 500);
-      
-      return () => clearTimeout(timer);
+    if (mapInstanceRef.current && mapReady) {
+      requestAnimationFrame(() => {
+        mapInstanceRef.current?.invalidateSize();
+      });
     }
-  }, [loading, reports.length]);
+  }, [reports.length, mapReady]);
 
   useEffect(() => {
     if (mapInstanceRef.current) {
@@ -722,11 +643,11 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
         <div className="absolute top-4 right-4 bg-background/90 backdrop-blur-sm rounded-lg p-2 text-xs text-muted-foreground">
           {filteredReports.length} of {reports.length} report{reports.length !== 1 ? 's' : ''} shown
         </div>
-        {!mapReady && (
+        {(loading || !mapReady) && (
           <div className="absolute inset-0 flex items-center justify-center bg-background/80">
             <div className="text-center">
               <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">Loading map tiles...</p>
+              <p className="text-sm text-muted-foreground">Loading map...</p>
             </div>
           </div>
         )}
