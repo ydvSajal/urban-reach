@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
 import ImageUpload from "@/components/ImageUpload";
+import { uploadFiles } from "@/lib/storage";
 import { 
   AlertCircle, 
   CheckCircle, 
@@ -926,10 +927,20 @@ const WorkerDashboard = () => {
               <Label>Completion Photos</Label>
               <ImageUpload
                 onUpload={async (files) => {
-                  // Handle files and return URLs
-                  const urls = files.map(file => URL.createObjectURL(file));
-                  setCompletionPhotos(prev => [...prev, ...urls]);
-                  return urls;
+                  try {
+                    const reportId = completionDialog.reportId || 'completion';
+                    const uploadedUrls = await uploadFiles(files, reportId);
+                    setCompletionPhotos(prev => [...prev, ...uploadedUrls]);
+                    return uploadedUrls;
+                  } catch (error) {
+                    console.error('Error uploading completion photos:', error);
+                    toast({
+                      title: "Upload Error",
+                      description: "Failed to upload photos. Please try again.",
+                      variant: "destructive"
+                    });
+                    return [];
+                  }
                 }}
                 maxFiles={5}
                 className="mt-1"
