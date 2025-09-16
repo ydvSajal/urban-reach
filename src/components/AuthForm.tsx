@@ -128,35 +128,43 @@ const AuthForm = ({ onSuccess, userType }: AuthFormProps) => {
     setError("");
 
     try {
-      await verifyOTP(email, otpToken);
+      const { data } = await verifyOTP(email, otpToken);
+      
+      // Wait a moment for the session to be established
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Get the current session to ensure we have the latest user data
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        throw new Error("Authentication failed - no session found");
+      }
+
+      // Create/update profile based on user type
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .upsert({
+          user_id: session.user.id,
+          email: session.user.email || email,
+          role: userType,
+          council_id: '00000000-0000-0000-0000-000000000001',
+          full_name: session.user.user_metadata?.full_name || null,
+          phone: session.user.user_metadata?.phone || null
+        }, {
+          onConflict: 'user_id'
+        });
+
+      if (profileError) {
+        console.error("Error creating/updating profile:", profileError);
+        throw new Error("Failed to create user profile");
+      }
       
       toast({
         title: "Authentication successful",
         description: "Welcome to the Municipal Portal!",
       });
 
-      // Create/update profile based on user type
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { error: profileError } = await supabase
-          .from("profiles")
-          .upsert({
-            user_id: user.id,
-            email: user.email || email,
-            role: userType,
-            council_id: '00000000-0000-0000-0000-000000000001',
-            full_name: user.user_metadata?.full_name || null,
-            phone: user.user_metadata?.phone || null
-          }, {
-            onConflict: 'user_id'
-          });
-
-        if (profileError) {
-          console.error("Error creating/updating profile:", profileError);
-        }
-      }
-
-      onSuccess();
+      // The auth state change will automatically redirect to the correct dashboard
+      // No need to call onSuccess() as the App component will handle the routing
     } catch (error: any) {
       console.error("Error verifying OTP:", error);
       const attempts = rateLimitUtils.incrementAttempts(email);

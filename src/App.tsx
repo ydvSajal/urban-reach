@@ -68,13 +68,16 @@ const App = () => {
       setUser(session?.user ?? null);
       
       if (session?.user) {
-        const profile = await fetchUserProfile(session.user.id);
-        setUserProfile(profile);
+        // Add a small delay to ensure profile is created after successful OTP verification
+        setTimeout(async () => {
+          const profile = await fetchUserProfile(session.user.id);
+          setUserProfile(profile);
+          setLoading(false);
+        }, 500);
       } else {
         setUserProfile(null);
+        setLoading(false);
       }
-      
-      setLoading(false);
     };
 
     // Set up auth state listener
@@ -131,19 +134,19 @@ const App = () => {
                 {/* Auth Routes */}
                 <Route 
                   path="/auth/admin" 
-                  element={!user ? <Auth userType="admin" onSuccess={() => window.location.reload()} /> : <Navigate to="/dashboard" replace />} 
+                  element={!user ? <Auth userType="admin" onSuccess={() => {}} /> : <Navigate to="/dashboard" replace />} 
                 />
                 <Route 
                   path="/auth/worker" 
-                  element={!user ? <Auth userType="worker" onSuccess={() => window.location.reload()} /> : <Navigate to="/worker-dashboard" replace />} 
+                  element={!user ? <Auth userType="worker" onSuccess={() => {}} /> : <Navigate to="/worker-dashboard" replace />} 
                 />
                 <Route 
                   path="/auth/citizen" 
-                  element={!user ? <Auth userType="citizen" onSuccess={() => window.location.reload()} /> : <Navigate to="/citizen-dashboard" replace />} 
+                  element={!user ? <Auth userType="citizen" onSuccess={() => {}} /> : <Navigate to="/citizen-dashboard" replace />} 
                 />
                 <Route 
                   path="/auth" 
-                  element={!user ? <Auth userType="citizen" onSuccess={() => window.location.reload()} /> : <Navigate to={getDefaultRoute(userRole)} replace />} 
+                  element={!user ? <Auth userType="citizen" onSuccess={() => {}} /> : <Navigate to={getDefaultRoute(userRole)} replace />} 
                 />
 
                 {/* Protected Routes */}
