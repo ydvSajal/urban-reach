@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { User, Session } from "@supabase/supabase-js";
@@ -40,15 +40,17 @@ interface UserProfile {
   full_name: string | null;
 }
 
+const LAST_ROLE_KEY = "ur_last_known_role";
+
 const App = () => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null | undefined>(undefined);
   const [loading, setLoading] = useState(true);
+  const [profileResolved, setProfileResolved] = useState(false);
 
-  const fetchUserProfile = async (userId: string): Promise<UserProfile | null> => {
+  const fetchUserProfile = async (userId: string): Promise<UserProfile | null | undefined> => {
     try {
-      console.log("Fetching user profile for userId:", userId);
       const { data: profile, error } = await supabase
         .from("profiles")
         .select("role, council_id, full_name")
@@ -57,62 +59,59 @@ const App = () => {
 
       if (error) {
         console.error("Error fetching user profile:", error);
-        return null;
+        return undefined; // signal fetch error
       }
 
       if (!profile) {
-        console.log("No profile found for user:", userId);
-        return null;
+        return null; // not found
       }
 
-      console.log("Profile fetched successfully:", profile);
       return profile as UserProfile;
     } catch (error) {
       console.error("Error fetching user profile:", error);
-      return null;
+      return undefined; // fetch failed
     }
   };
 
   useEffect(() => {
     const handleAuthStateChange = async (session: Session | null) => {
-      console.log("Auth state changed:", session?.user?.id ? "User logged in" : "User logged out");
       setSession(session);
       setUser(session?.user ?? null);
-      
+
       if (session?.user) {
-        console.log("Fetching profile for user:", session.user.id);
-        // Fetch profile with timeout to prevent infinite loading
-        const timeoutPromise = new Promise<null>((_, reject) => {
-          setTimeout(() => reject(new Error('Profile fetch timeout')), 10000);
+        // Fetch profile with timeout to prevent hanging
+        const timeoutPromise = new Promise<undefined>((resolve) => {
+          setTimeout(() => resolve(undefined), 8000);
         });
 
-        try {
-          const profile = await Promise.race([
-            fetchUserProfile(session.user.id),
-            timeoutPromise
-          ]);
-          
-          console.log("Profile result:", profile);
+        const profile = await Promise.race([
+          fetchUserProfile(session.user.id),
+          timeoutPromise,
+        ]);
+
+        if (profile === undefined) {
+          // Keep previous profile; don't force profile-setup screen
+          setProfileResolved(false);
+        } else {
           setUserProfile(profile);
-        } catch (error) {
-          console.error("Profile fetch failed:", error);
-          setUserProfile(null);
+          setProfileResolved(true);
+          if (profile && profile.role) {
+            try { localStorage.setItem(LAST_ROLE_KEY, profile.role); } catch {}
+          }
         }
-        
+
         setLoading(false);
       } else {
-        console.log("No user session, clearing profile");
-        setUserProfile(null);
+        setUserProfile(undefined);
+        setProfileResolved(false);
         setLoading(false);
       }
     };
 
-    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       await handleAuthStateChange(session);
     });
 
-    // Check initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       handleAuthStateChange(session);
     });
@@ -143,10 +142,14 @@ const App = () => {
     );
   }
 
-  // If user exists but no profile, redirect to create profile or show error
-  const userRole = userProfile?.role || 'citizen';
+  // Determine role preference using profile first, then last-known role
+  const lastKnownRole = ((): UserRole => {
+    try { return (localStorage.getItem(LAST_ROLE_KEY) as UserRole) || 'citizen'; } catch { return 'citizen'; }
+  })();
+  const effectiveRole: UserRole = (userProfile && userProfile.role) || lastKnownRole || 'citizen';
 
-  if (user && !userProfile) {
+  // Only show setup screen if we positively know there is no profile
+  if (user && profileResolved && userProfile === null) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="max-w-md w-full mx-4 text-center">
@@ -175,12 +178,12 @@ const App = () => {
             <Toaster />
             <Sonner />
             <MobilePerformanceMonitor />
-            <BrowserRouter>
+            <HashRouter>
               <Routes>
                 {/* Public Routes */}
                 <Route 
                   path="/" 
-                  element={user ? <Navigate to={getDefaultRoute(userRole)} replace /> : <Index />} 
+                  element={user ? <Navigate to={getDefaultRoute(effectiveRole)} replace /> : <Index />} 
                 />
                 
                 {/* Auth Routes */}
@@ -198,27 +201,27 @@ const App = () => {
                 />
                 <Route 
                   path="/auth" 
-                  element={!user ? <Auth userType="citizen" onSuccess={() => {}} /> : <Navigate to={getDefaultRoute(userRole)} replace />} 
+                  element={!user ? <Auth userType="citizen" onSuccess={() => {}} /> : <Navigate to={getDefaultRoute(effectiveRole)} replace />} 
                 />
 
                 {/* Protected Routes */}
                 {user && (
                   <>
                     {/* Admin Routes */}
-                    {userRole === 'admin' && (
+                    {effectiveRole === 'admin' && (
                       <>
-                        <Route path="/dashboard" element={<Layout userRole={userRole}><Dashboard /></Layout>} />
-                        <Route path="/reports" element={<Layout userRole={userRole}><Reports /></Layout>} />
-                        <Route path="/reports/:id" element={<Layout userRole={userRole}><ReportDetail /></Layout>} />
-                        <Route path="/workers" element={<Layout userRole={userRole}><Workers /></Layout>} />
-                        <Route path="/analytics" element={<Layout userRole={userRole}><Analytics /></Layout>} />
-                        <Route path="/maps" element={<Layout userRole={userRole}><Maps /></Layout>} />
-                        <Route path="/notifications" element={<Layout userRole={userRole}><NotificationSettings /></Layout>} />
+                        <Route path="/dashboard" element={<Layout userRole={effectiveRole}><Dashboard /></Layout>} />
+                        <Route path="/reports" element={<Layout userRole={effectiveRole}><Reports /></Layout>} />
+                        <Route path="/reports/:id" element={<Layout userRole={effectiveRole}><ReportDetail /></Layout>} />
+                        <Route path="/workers" element={<Layout userRole={effectiveRole}><Workers /></Layout>} />
+                        <Route path="/analytics" element={<Layout userRole={effectiveRole}><Analytics /></Layout>} />
+                        <Route path="/maps" element={<Layout userRole={effectiveRole}><Maps /></Layout>} />
+                        <Route path="/notifications" element={<Layout userRole={effectiveRole}><NotificationSettings /></Layout>} />
                       </>
                     )}
 
                     {/* Worker Routes */}
-                    {userRole === 'worker' && (
+                    {effectiveRole === 'worker' && (
                       <>
                         <Route path="/worker-dashboard" element={<WorkerLayout><WorkerDashboard /></WorkerLayout>} />
                         <Route path="/worker/assignments" element={<WorkerLayout><WorkerAssignments /></WorkerLayout>} />
@@ -230,7 +233,7 @@ const App = () => {
                     )}
 
                     {/* Citizen Routes */}
-                    {userRole === 'citizen' && (
+                    {effectiveRole === 'citizen' && (
                       <>
                         <Route path="/citizen-dashboard" element={<CitizenLayout><CitizenDashboard /></CitizenLayout>} />
                         <Route path="/submit-report" element={<CitizenLayout><SubmitReport /></CitizenLayout>} />
@@ -243,15 +246,15 @@ const App = () => {
                     {/* Role-based redirects for unauthorized access */}
                     <Route 
                       path="/dashboard" 
-                      element={userRole !== 'admin' ? <Navigate to={getDefaultRoute(userRole)} replace /> : null} 
+                      element={effectiveRole !== 'admin' ? <Navigate to={getDefaultRoute(effectiveRole)} replace /> : null} 
                     />
                     <Route 
                       path="/worker-dashboard" 
-                      element={userRole !== 'worker' ? <Navigate to={getDefaultRoute(userRole)} replace /> : null} 
+                      element={effectiveRole !== 'worker' ? <Navigate to={getDefaultRoute(effectiveRole)} replace /> : null} 
                     />
                     <Route 
                       path="/citizen-dashboard" 
-                      element={userRole !== 'citizen' ? <Navigate to={getDefaultRoute(userRole)} replace /> : null} 
+                      element={effectiveRole !== 'citizen' ? <Navigate to={getDefaultRoute(effectiveRole)} replace /> : null} 
                     />
                   </>
                 )}
@@ -259,7 +262,7 @@ const App = () => {
                 {/* 404 fallback */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
-            </BrowserRouter>
+            </HashRouter>
           </NotificationProvider>
         </TooltipProvider>
       </QueryClientProvider>

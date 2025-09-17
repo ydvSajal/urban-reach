@@ -44,7 +44,7 @@ const CitizenLayout = ({ children }: CitizenLayoutProps) => {
         description: "You have been logged out.",
       });
       
-      navigate("/auth");
+      navigate("/");
     } catch (error: any) {
       toast({
         title: "Error signing out",

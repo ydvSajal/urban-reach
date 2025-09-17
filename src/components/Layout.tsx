@@ -46,7 +46,7 @@ const Layout = ({ children, userRole }: LayoutProps) => {
         description: "You have been logged out.",
       });
       
-      navigate("/auth");
+      navigate("/");
     } catch (error: unknown) {
       toast({
         title: "Error signing out",
