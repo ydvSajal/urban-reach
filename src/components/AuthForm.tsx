@@ -201,13 +201,20 @@ const AuthForm = ({ onSuccess, userType }: AuthFormProps) => {
         }
       }
       
+      // Clear any conflicting role data from localStorage to prevent redirect issues
+      try {
+        localStorage.removeItem('ur_last_known_role');
+      } catch (error) {
+        console.warn('Could not clear localStorage:', error);
+      }
+
       toast({
         title: "Authentication successful",
         description: "Welcome to the Municipal Portal!",
       });
 
-      // The auth state change will automatically redirect to the correct dashboard
-      // No need to call onSuccess() as the App component will handle the routing
+      // Call onSuccess to indicate successful authentication
+      onSuccess();
     } catch (error: any) {
       console.error("Error verifying OTP:", error);
       const attempts = rateLimitUtils.incrementAttempts(email);

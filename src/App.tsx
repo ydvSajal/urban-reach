@@ -142,11 +142,29 @@ const App = () => {
     );
   }
 
-  // Determine role preference using profile first, then last-known role
+  // Determine role preference using profile first, then last-known role (only when no session)
   const lastKnownRole = ((): UserRole => {
     try { return (localStorage.getItem(LAST_ROLE_KEY) as UserRole) || 'citizen'; } catch { return 'citizen'; }
   })();
-  const effectiveRole: UserRole = (userProfile && userProfile.role) || lastKnownRole || 'citizen';
+  
+  // CRITICAL FIX: Only use lastKnownRole when there's no user session
+  // When user is authenticated, wait for profile to load or show loading
+  const effectiveRole: UserRole = 
+    user && userProfile ? userProfile.role : 
+    !user ? lastKnownRole : 
+    'citizen'; // fallback for authenticated users without profile
+
+  // Show loading screen while profile is being fetched for authenticated users
+  if (user && !profileResolved) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Setting up your account...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Only show setup screen if we positively know there is no profile
   if (user && profileResolved && userProfile === null) {
@@ -186,22 +204,30 @@ const App = () => {
                   element={user ? <Navigate to={getDefaultRoute(effectiveRole)} replace /> : <Index />} 
                 />
                 
-                {/* Auth Routes */}
+                {/* Auth Routes - Clear localStorage on successful auth */}
                 <Route 
                   path="/auth/admin" 
-                  element={!user ? <Auth userType="admin" onSuccess={() => {}} /> : <Navigate to="/dashboard" replace />} 
+                  element={!user ? <Auth userType="admin" onSuccess={() => {
+                    try { localStorage.removeItem(LAST_ROLE_KEY); } catch {}
+                  }} /> : <Navigate to="/dashboard" replace />} 
                 />
                 <Route 
                   path="/auth/worker" 
-                  element={!user ? <Auth userType="worker" onSuccess={() => {}} /> : <Navigate to="/worker-dashboard" replace />} 
+                  element={!user ? <Auth userType="worker" onSuccess={() => {
+                    try { localStorage.removeItem(LAST_ROLE_KEY); } catch {}
+                  }} /> : <Navigate to="/worker-dashboard" replace />} 
                 />
                 <Route 
                   path="/auth/citizen" 
-                  element={!user ? <Auth userType="citizen" onSuccess={() => {}} /> : <Navigate to="/citizen-dashboard" replace />} 
+                  element={!user ? <Auth userType="citizen" onSuccess={() => {
+                    try { localStorage.removeItem(LAST_ROLE_KEY); } catch {}
+                  }} /> : <Navigate to="/citizen-dashboard" replace />} 
                 />
                 <Route 
                   path="/auth" 
-                  element={!user ? <Auth userType="citizen" onSuccess={() => {}} /> : <Navigate to={getDefaultRoute(effectiveRole)} replace />} 
+                  element={!user ? <Auth userType="citizen" onSuccess={() => {
+                    try { localStorage.removeItem(LAST_ROLE_KEY); } catch {}
+                  }} /> : <Navigate to={getDefaultRoute(effectiveRole)} replace />} 
                 />
 
                 {/* Protected Routes */}
