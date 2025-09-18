@@ -258,45 +258,45 @@ const AuthForm = ({ onSuccess, userType }: AuthFormProps) => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-blue-100 p-4 relative overflow-hidden">
       {/* Animated background elements */}
       <div className="absolute inset-0 w-full h-full">
-        <div className="absolute top-0 -left-4 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob"></div>
-        <div className="absolute top-0 -right-4 w-72 h-72 bg-yellow-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000"></div>
-        <div className="absolute -bottom-8 left-20 w-72 h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
+        <div className="absolute top-0 -left-4 w-72 h-72 bg-blue-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob"></div>
+        <div className="absolute top-0 -right-4 w-72 h-72 bg-blue-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000"></div>
+        <div className="absolute -bottom-8 left-20 w-72 h-72 bg-blue-100 rounded-full mix-blend-multiply filter blur-xl opacity-25 animate-blob animation-delay-4000"></div>
       </div>
       
       {/* Main card */}
-      <Card className="w-full max-w-md backdrop-blur-xl bg-white/10 border border-white/20 shadow-2xl">
+      <Card className="w-full max-w-md backdrop-blur-xl bg-white/95 border border-blue-200/50 shadow-2xl shadow-blue-500/10">
         <CardHeader className="text-center pb-8">
           <div className="flex justify-center items-center gap-3 mb-6">
-            <div className="p-3 rounded-2xl bg-gradient-to-r from-blue-500 to-purple-600 shadow-lg">
-              <Building2 className="h-8 w-8 text-white" />
+            <div className="p-3 rounded-2xl bg-primary shadow-lg">
+              <Building2 className="h-8 w-8 text-primary-foreground" />
             </div>
-            <div className="p-3 rounded-2xl bg-gradient-to-r from-purple-500 to-pink-600 shadow-lg">
+            <div className="p-3 rounded-2xl bg-gradient-to-r from-blue-500 to-blue-600 shadow-lg">
               {getUserTypeIcon()}
             </div>
           </div>
-          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-white to-gray-200 bg-clip-text text-transparent">
+          <CardTitle className="text-3xl font-bold text-foreground">
             {getUserTypeTitle()}
           </CardTitle>
-          <CardDescription className="text-gray-300 mt-2 text-base">
+          <CardDescription className="text-muted-foreground mt-2 text-base">
             {getUserTypeDescription()}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {!isOtpSent ? (
             <Tabs value={isSignUp ? "signup" : "signin"} onValueChange={(value) => setIsSignUp(value === "signup")} className="w-full">
-              <TabsList className="grid w-full grid-cols-2 bg-white/5 border border-white/10 rounded-xl p-1">
+              <TabsList className="grid w-full grid-cols-2 bg-muted/50 border border-border rounded-xl p-1">
                 <TabsTrigger 
                   value="signin" 
-                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-purple-600 data-[state=active]:text-white text-gray-300 rounded-lg transition-all duration-200"
+                  className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground rounded-lg transition-all duration-200"
                 >
                   Sign In
                 </TabsTrigger>
                 <TabsTrigger 
                   value="signup" 
-                  className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-pink-600 data-[state=active]:text-white text-gray-300 rounded-lg transition-all duration-200"
+                  className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground text-muted-foreground rounded-lg transition-all duration-200"
                 >
                   Sign Up
                 </TabsTrigger>
@@ -304,7 +304,7 @@ const AuthForm = ({ onSuccess, userType }: AuthFormProps) => {
               
               <TabsContent value="signin" className="space-y-6 mt-6">
                 <div className="space-y-2">
-                  <Label htmlFor="email" className="text-gray-200 font-medium">Email</Label>
+                  <Label htmlFor="email" className="text-foreground font-medium">Email</Label>
                   <Input
                     id="email"
                     type="email"
@@ -312,13 +312,13 @@ const AuthForm = ({ onSuccess, userType }: AuthFormProps) => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     disabled={loading}
-                    className="bg-white/5 border-white/10 text-white placeholder:text-gray-400 focus:border-blue-400 focus:bg-white/10 transition-all duration-200 h-12"
+                    className="h-12 focus:ring-2 focus:ring-primary/20 transition-all duration-200"
                   />
                 </div>
                 <Button 
                   onClick={handleSendOTP} 
                   disabled={loading || !isOnline} 
-                  className="w-full h-12 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                  className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
                 >
                   {loading ? (
                     <>
@@ -336,7 +336,7 @@ const AuthForm = ({ onSuccess, userType }: AuthFormProps) => {
               
               <TabsContent value="signup" className="space-y-6 mt-6">
                 <div className="space-y-2">
-                  <Label htmlFor="signup-email" className="text-gray-200 font-medium">Email</Label>
+                  <Label htmlFor="signup-email" className="text-foreground font-medium">Email</Label>
                   <Input
                     id="signup-email"
                     type="email"
@@ -344,14 +344,14 @@ const AuthForm = ({ onSuccess, userType }: AuthFormProps) => {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     disabled={loading}
-                    className="bg-white/5 border-white/10 text-white placeholder:text-gray-400 focus:border-purple-400 focus:bg-white/10 transition-all duration-200 h-12"
+                    className="h-12 focus:ring-2 focus:ring-primary/20 transition-all duration-200"
                   />
                 </div>
                 
                 {userType === 'worker' && (
                   <div className="space-y-4">
                     <div className="space-y-2">
-                      <Label htmlFor="fullName" className="text-gray-200 font-medium">Full Name *</Label>
+                      <Label htmlFor="fullName" className="text-foreground font-medium">Full Name *</Label>
                       <Input
                         id="fullName"
                         placeholder="Enter your full name"
@@ -359,11 +359,11 @@ const AuthForm = ({ onSuccess, userType }: AuthFormProps) => {
                         onChange={(e) => setWorkerData({ ...workerData, fullName: e.target.value })}
                         disabled={loading}
                         required
-                        className="bg-white/5 border-white/10 text-white placeholder:text-gray-400 focus:border-purple-400 focus:bg-white/10 transition-all duration-200 h-12"
+                        className="h-12 focus:ring-2 focus:ring-primary/20 transition-all duration-200"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="phone" className="text-gray-200 font-medium">Phone Number *</Label>
+                      <Label htmlFor="phone" className="text-foreground font-medium">Phone Number *</Label>
                       <Input
                         id="phone"
                         type="tel"
@@ -372,28 +372,28 @@ const AuthForm = ({ onSuccess, userType }: AuthFormProps) => {
                         onChange={(e) => setWorkerData({ ...workerData, phone: e.target.value })}
                         disabled={loading}
                         required
-                        className="bg-white/5 border-white/10 text-white placeholder:text-gray-400 focus:border-purple-400 focus:bg-white/10 transition-all duration-200 h-12"
+                        className="h-12 focus:ring-2 focus:ring-primary/20 transition-all duration-200"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="specialty" className="text-gray-200 font-medium">Specialty</Label>
+                      <Label htmlFor="specialty" className="text-foreground font-medium">Specialty</Label>
                       <Select
                         value={workerData.specialty}
                         onValueChange={(value) => setWorkerData({ ...workerData, specialty: value })}
                         disabled={loading}
                       >
-                        <SelectTrigger className="bg-white/5 border-white/10 text-white focus:border-purple-400 focus:bg-white/10 transition-all duration-200 h-12">
-                          <SelectValue placeholder="Select your specialty" className="text-gray-400" />
+                        <SelectTrigger className="h-12 focus:ring-2 focus:ring-primary/20 transition-all duration-200">
+                          <SelectValue placeholder="Select your specialty" />
                         </SelectTrigger>
-                        <SelectContent className="bg-slate-800 border-slate-700">
-                          <SelectItem value="electrician" className="text-white hover:bg-slate-700">Electrician</SelectItem>
-                          <SelectItem value="plumber" className="text-white hover:bg-slate-700">Plumber</SelectItem>
-                          <SelectItem value="road_maintenance" className="text-white hover:bg-slate-700">Road Maintenance</SelectItem>
-                          <SelectItem value="sanitation" className="text-white hover:bg-slate-700">Sanitation</SelectItem>
-                          <SelectItem value="water_supply" className="text-white hover:bg-slate-700">Water Supply</SelectItem>
-                          <SelectItem value="waste_management" className="text-white hover:bg-slate-700">Waste Management</SelectItem>
-                          <SelectItem value="general" className="text-white hover:bg-slate-700">General Maintenance</SelectItem>
-                          <SelectItem value="other" className="text-white hover:bg-slate-700">Other</SelectItem>
+                        <SelectContent>
+                          <SelectItem value="electrician">Electrician</SelectItem>
+                          <SelectItem value="plumber">Plumber</SelectItem>
+                          <SelectItem value="road_maintenance">Road Maintenance</SelectItem>
+                          <SelectItem value="sanitation">Sanitation</SelectItem>
+                          <SelectItem value="water_supply">Water Supply</SelectItem>
+                          <SelectItem value="waste_management">Waste Management</SelectItem>
+                          <SelectItem value="general">General Maintenance</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -403,7 +403,7 @@ const AuthForm = ({ onSuccess, userType }: AuthFormProps) => {
                 <Button 
                   onClick={handleSendOTP} 
                   disabled={loading || !isOnline} 
-                  className="w-full h-12 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                  className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
                 >
                   {loading ? (
                     <>
@@ -423,19 +423,19 @@ const AuthForm = ({ onSuccess, userType }: AuthFormProps) => {
             <div className="space-y-6">
               <div className="text-center">
                 <div className="relative inline-flex">
-                  <div className="w-16 h-16 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-xl">
+                  <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-xl">
                     <CheckCircle className="h-8 w-8 text-white" />
                   </div>
                   <div className="absolute inset-0 w-16 h-16 bg-green-400 rounded-full animate-ping opacity-20"></div>
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2">OTP Sent</h3>
-                <p className="text-gray-300">
+                <h3 className="text-xl font-bold text-foreground mb-2">OTP Sent</h3>
+                <p className="text-muted-foreground">
                   Please check your email for the 6-digit verification code
                 </p>
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="otp" className="text-gray-200 font-medium">Verification Code</Label>
+                <Label htmlFor="otp" className="text-foreground font-medium">Verification Code</Label>
                 <Input
                   id="otp"
                   type="text"
@@ -444,14 +444,14 @@ const AuthForm = ({ onSuccess, userType }: AuthFormProps) => {
                   onChange={(e) => setOtpToken(e.target.value.replace(/\D/g, '').slice(0, 6))}
                   disabled={otpLoading}
                   maxLength={6}
-                  className="bg-white/5 border-white/10 text-white placeholder:text-gray-400 focus:border-green-400 focus:bg-white/10 transition-all duration-200 h-12 text-center text-2xl tracking-widest font-mono"
+                  className="h-12 text-center text-2xl tracking-widest font-mono focus:ring-2 focus:ring-green-500/20 transition-all duration-200"
                 />
               </div>
               
               <Button 
                 onClick={handleVerifyOTP} 
                 disabled={otpLoading || !isOnline} 
-                className="w-full h-12 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
+                className="w-full h-12 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 transform hover:scale-105"
               >
                 {otpLoading ? (
                   <>
@@ -463,14 +463,14 @@ const AuthForm = ({ onSuccess, userType }: AuthFormProps) => {
                 )}
               </Button>
               
-              <div className="flex justify-between text-sm text-gray-300">
-                <span>Attempts remaining: <span className="font-semibold text-white">{remainingAttempts}</span></span>
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>Attempts remaining: <span className="font-semibold text-foreground">{remainingAttempts}</span></span>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={resendCooldown > 0 ? undefined : handleSendOTP}
                   disabled={resendCooldown > 0 || loading}
-                  className="p-0 h-auto text-blue-400 hover:text-blue-300"
+                  className="p-0 h-auto text-primary hover:text-primary/80"
                 >
                   {resendCooldown > 0 ? (
                     `Resend in ${resendCooldown}s`
@@ -486,7 +486,7 @@ const AuthForm = ({ onSuccess, userType }: AuthFormProps) => {
               <Button 
                 variant="outline" 
                 onClick={resetForm} 
-                className="w-full h-12 bg-white/5 border-white/20 text-white hover:bg-white/10 rounded-xl transition-all duration-200"
+                className="w-full h-12 rounded-xl transition-all duration-200"
               >
                 Change Email
               </Button>
@@ -494,16 +494,16 @@ const AuthForm = ({ onSuccess, userType }: AuthFormProps) => {
           )}
           
           {error && (
-            <Alert variant="destructive" className="bg-red-500/10 border-red-500/20 backdrop-blur-sm">
-              <AlertCircle className="h-4 w-4 text-red-400" />
-              <AlertDescription className="text-red-200">{error}</AlertDescription>
+            <Alert variant="destructive" className="backdrop-blur-sm">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
           
           {!isOnline && (
-            <Alert className="bg-yellow-500/10 border-yellow-500/20 backdrop-blur-sm">
-              <AlertCircle className="h-4 w-4 text-yellow-400" />
-              <AlertDescription className="text-yellow-200">
+            <Alert className="bg-yellow-50 border-yellow-200 backdrop-blur-sm">
+              <AlertCircle className="h-4 w-4 text-yellow-600" />
+              <AlertDescription className="text-yellow-800">
                 You are currently offline. Please check your internet connection.
               </AlertDescription>
             </Alert>
