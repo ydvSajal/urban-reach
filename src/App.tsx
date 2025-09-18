@@ -79,25 +79,35 @@ const App = () => {
       setUser(session?.user ?? null);
 
       if (session?.user) {
-        // Fetch profile with timeout to prevent hanging
-        const timeoutPromise = new Promise<undefined>((resolve) => {
-          setTimeout(() => resolve(undefined), 8000);
-        });
+        // Only fetch profile if we don't already have it or if it's a different user
+        if (!userProfile || userProfile === null) {
+          // Fetch profile with reduced timeout to improve loading experience
+          const timeoutPromise = new Promise<undefined>((resolve) => {
+            setTimeout(() => resolve(undefined), 3000);
+          });
 
-        const profile = await Promise.race([
-          fetchUserProfile(session.user.id),
-          timeoutPromise,
-        ]);
+          const profile = await Promise.race([
+            fetchUserProfile(session.user.id),
+            timeoutPromise,
+          ]);
 
-        if (profile === undefined) {
-          // Keep previous profile; don't force profile-setup screen
-          setProfileResolved(false);
-        } else {
-          setUserProfile(profile);
-          setProfileResolved(true);
-          if (profile && profile.role) {
-            try { localStorage.setItem(LAST_ROLE_KEY, profile.role); } catch {}
+          if (profile === undefined) {
+            // Use last known role to avoid blocking user
+            const lastRole = ((): UserRole => {
+              try { return (localStorage.getItem(LAST_ROLE_KEY) as UserRole) || 'citizen'; } catch { return 'citizen'; }
+            })();
+            setUserProfile({ role: lastRole, council_id: null, full_name: null });
+            setProfileResolved(true);
+          } else {
+            setUserProfile(profile);
+            setProfileResolved(true);
+            if (profile && profile.role) {
+              try { localStorage.setItem(LAST_ROLE_KEY, profile.role); } catch {}
+            }
           }
+        } else {
+          // Profile already exists, just mark as resolved
+          setProfileResolved(true);
         }
 
         setLoading(false);
@@ -154,8 +164,8 @@ const App = () => {
     !user ? lastKnownRole : 
     'citizen'; // fallback for authenticated users without profile
 
-  // Show loading screen while profile is being fetched for authenticated users
-  if (user && !profileResolved) {
+  // Only show loading screen for first-time users without any profile data
+  if (user && !profileResolved && !userProfile) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">

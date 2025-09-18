@@ -178,7 +178,7 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
           <div style='font-size: 11px; color: #6b7280; margin-bottom: 4px;'><strong>Location:</strong> ${report.location_address}</div>
           <div style='font-size: 11px; color: #6b7280; margin-bottom: 8px;'><strong>Created:</strong> ${new Date(report.created_at).toLocaleDateString()}</div>
           <div style='margin-top: 8px;'>
-            <button onclick="window.open('/reports/${report.id}', '_blank')" style="background: #374151; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: 500;">View Details</button>
+            <button onclick="window.location.hash = '#/reports/${report.id}'" style="background: #374151; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: 500;">View Details</button>
           </div>
         </div>
       `;
