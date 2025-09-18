@@ -21,29 +21,6 @@ const Index = () => {
               Streamlined municipal services for citizens, workers, and administrators. 
               Report issues, track progress, and manage municipal operations efficiently.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to="/auth/citizen">
-                <Button size="lg" className="w-full sm:w-auto text-lg px-8 py-4">
-                  <Users className="mr-2 h-5 w-5" />
-                  Citizen Portal
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              </Link>
-              <Link to="/auth/worker">
-                <Button variant="outline" size="lg" className="w-full sm:w-auto text-lg px-8 py-4">
-                  <FileText className="mr-2 h-5 w-5" />
-                  Worker Portal
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              </Link>
-              <Link to="/auth/admin">
-                <Button variant="secondary" size="lg" className="w-full sm:w-auto text-lg px-8 py-4">
-                  <Settings className="mr-2 h-5 w-5" />
-                  Admin Portal
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              </Link>
-            </div>
           </div>
         </div>
       </div>
