@@ -195,21 +195,21 @@ const WorkerDashboard = () => {
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'critical': return 'bg-red-500 text-white';
-      case 'high': return 'bg-orange-500 text-white';
-      case 'medium': return 'bg-yellow-500 text-black';
-      case 'low': return 'bg-green-500 text-white';
-      default: return 'bg-gray-500 text-white';
+      case 'critical': return 'bg-priority-critical text-white border-priority-critical';
+      case 'high': return 'bg-priority-high text-white border-priority-high';
+      case 'medium': return 'bg-priority-medium text-black border-priority-medium';
+      case 'low': return 'bg-priority-low text-white border-priority-low';
+      default: return 'bg-muted text-muted-foreground border-border';
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending': return 'bg-blue-100 text-blue-800';
-      case 'acknowledged': return 'bg-yellow-100 text-yellow-800';  
-      case 'in_progress': return 'bg-orange-100 text-orange-800';
-      case 'resolved': return 'bg-green-100 text-green-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'pending': return 'text-status-pending bg-status-pending/10 border-status-pending/20';
+      case 'acknowledged': return 'text-status-acknowledged bg-status-acknowledged/10 border-status-acknowledged/20';
+      case 'in_progress': return 'text-status-in-progress bg-status-in-progress/10 border-status-in-progress/20';
+      case 'resolved': return 'text-status-resolved bg-status-resolved/10 border-status-resolved/20';
+      default: return 'text-muted-foreground bg-muted border-border';
     }
   };
 
@@ -246,123 +246,133 @@ const WorkerDashboard = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-      {/* Welcome Header */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">
-              Welcome, {workerProfile.full_name}
-            </h1>
-            <p className="text-muted-foreground">Your daily assignments</p>
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        {/* Welcome Header */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+                Welcome, {workerProfile.full_name}
+              </h1>
+              <p className="text-muted-foreground text-lg">Your daily assignments</p>
+            </div>
+            <Button asChild className="shadow-lg">
+              <Link to="/worker/assignments">
+                <ClipboardList className="h-4 w-4 mr-2" />
+                <span className="hidden sm:inline">My Assignments</span>
+              </Link>
+            </Button>
           </div>
-          <Link 
-            to="/worker/assignments" 
-            className="flex items-center space-x-2 bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90"
-          >
-            <ClipboardList className="h-4 w-4" />
-            <span className="hidden sm:inline">My Assignments</span>
-          </Link>
         </div>
-      </div>
-      {/* Assignment Map */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <span>📍 Your Assignments Map</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <WorkerMapReal reports={reports.filter(r => r.latitude && r.longitude)} />
-        </CardContent>
-      </Card>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <Card className="text-center">
-          <CardContent className="pt-6 pb-6">
-            <div className="text-3xl font-bold text-primary">{stats.newAssignments}</div>
-            <div className="text-sm text-muted-foreground flex items-center justify-center mt-2">
-              <Clock className="h-4 w-4 mr-1" />
-              New Assignments
+        {/* Assignment Map */}
+        <Card className="mb-6 border-0 shadow-lg bg-card/50 backdrop-blur-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2 text-xl font-semibold">
+              <span>📍 Your Assignments Map</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-lg overflow-hidden">
+              <WorkerMapReal reports={reports.filter(r => r.latitude && r.longitude)} />
             </div>
           </CardContent>
         </Card>
-        
-        <Card className="text-center">
-          <CardContent className="pt-6 pb-6">
-            <div className="text-3xl font-bold text-orange-600">{stats.inProgress}</div>
-            <div className="text-sm text-muted-foreground flex items-center justify-center mt-2">
-              <AlertTriangle className="h-4 w-4 mr-1" />
-              In Progress
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="text-center">
-          <CardContent className="pt-6 pb-6">
-            <div className="text-3xl font-bold text-green-600">{stats.completedToday}</div>
-            <div className="text-sm text-muted-foreground flex items-center justify-center mt-2">
-              <CheckCircle className="h-4 w-4 mr-1" />
-              Completed Today
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-6">
+          <Card className="text-center border-0 shadow-lg bg-card/50 backdrop-blur-sm hover:shadow-xl transition-all duration-300">
+            <CardContent className="pt-6 pb-6">
+              <div className="p-3 rounded-lg bg-primary/10 w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                <Clock className="h-8 w-8 text-primary" />
+              </div>
+              <div className="text-3xl font-bold text-foreground">{stats.newAssignments}</div>
+              <div className="text-sm text-muted-foreground mt-2">
+                New Assignments
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="text-center border-0 shadow-lg bg-card/50 backdrop-blur-sm hover:shadow-xl transition-all duration-300">
+            <CardContent className="pt-6 pb-6">
+              <div className="p-3 rounded-lg bg-status-in-progress/10 w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                <AlertTriangle className="h-8 w-8 text-status-in-progress" />
+              </div>
+              <div className="text-3xl font-bold text-foreground">{stats.inProgress}</div>
+              <div className="text-sm text-muted-foreground mt-2">
+                In Progress
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card className="text-center border-0 shadow-lg bg-card/50 backdrop-blur-sm hover:shadow-xl transition-all duration-300">
+            <CardContent className="pt-6 pb-6">
+              <div className="p-3 rounded-lg bg-status-resolved/10 w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="h-8 w-8 text-status-resolved" />
+              </div>
+              <div className="text-3xl font-bold text-foreground">{stats.completedToday}</div>
+              <div className="text-sm text-muted-foreground mt-2">
+                Completed Today
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
-      {/* Upcoming Tasks */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Calendar className="h-5 w-5 text-primary" />
-              <span>Next Priority Tasks</span>
-            </div>
-            <Link 
-              to="/worker/assignments"
-              className="text-sm text-primary hover:text-primary/80 flex items-center space-x-1"
-            >
-              <span>View All</span>
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+        {/* Upcoming Tasks */}
+        <Card className="border-0 shadow-lg bg-card/50 backdrop-blur-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Calendar className="h-5 w-5 text-primary" />
+                <span className="text-xl font-semibold">Next Priority Tasks</span>
+              </div>
+              <Link 
+                to="/worker/assignments"
+                className="text-sm text-primary hover:text-primary/80 flex items-center space-x-1 font-medium"
+              >
+                <span>View All</span>
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
           {upcomingTasks.length === 0 ? (
-            <div className="text-center py-8">
-              <CheckCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-foreground">All caught up!</h3>
+            <div className="text-center py-12">
+              <div className="p-4 rounded-full bg-status-resolved/10 w-20 h-20 flex items-center justify-center mx-auto mb-6">
+                <CheckCircle className="h-10 w-10 text-status-resolved" />
+              </div>
+              <h3 className="text-xl font-semibold text-foreground mb-3">All caught up!</h3>
               <p className="text-muted-foreground">No pending assignments at the moment.</p>
             </div>
           ) : (
             <div className="space-y-4">
               {upcomingTasks.map((task) => (
-                <div key={task.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                <div key={task.id} className="border border-border/50 rounded-lg p-5 bg-background/50 hover:bg-accent/5 hover:shadow-lg transition-all duration-300">
                   <div className="flex items-start justify-between space-x-4">
                     <div className="flex-1">
-                      <div className="flex items-center space-x-2 mb-2">
+                      <div className="flex items-center space-x-3 mb-3">
                         <h3 className="font-semibold text-foreground">{task.title}</h3>
-                        <Badge className={getPriorityColor(task.priority)}>
+                        <Badge className={`${getPriorityColor(task.priority)} border font-medium`}>
                           {task.priority.toUpperCase()}
                         </Badge>
                       </div>
-                      <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{task.description}</p>
-                      <div className="flex items-center space-x-4 text-xs text-muted-foreground">
+                      <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{task.description}</p>
+                      <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                         <div className="flex items-center space-x-1">
                           <span>📍 {task.location_address}</span>
                         </div>
                         <div className="flex items-center space-x-1">
-                          <Clock className="h-3 w-3" />
+                          <Clock className="h-4 w-4" />
                           <span>{formatDistanceToNow(new Date(task.created_at), { addSuffix: true })}</span>
                         </div>
                       </div>
                     </div>
-                    <div className="flex flex-col space-y-2">
-                      <Badge className={getStatusColor(task.status)}>
+                    <div className="flex flex-col space-y-3">
+                      <Badge className={`${getStatusColor(task.status)} border font-medium`}>
                         {task.status.replace('_', ' ')}
                       </Badge>
                       <Button 
                         size="sm"
                         onClick={() => openInMaps(task.location_address, task.latitude || undefined, task.longitude || undefined)}
-                        className="bg-primary hover:bg-primary/90"
+                        className="shadow-sm"
                       >
                         <Navigation className="h-4 w-4 mr-1" />
                         Navigate
@@ -373,8 +383,9 @@ const WorkerDashboard = () => {
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };

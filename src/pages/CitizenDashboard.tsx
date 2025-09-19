@@ -66,12 +66,12 @@ const CitizenDashboard = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending': return 'text-yellow-600 bg-yellow-100';
-      case 'acknowledged': return 'text-blue-600 bg-blue-100';
-      case 'in_progress': return 'text-orange-600 bg-orange-100';
-      case 'resolved': return 'text-green-600 bg-green-100';
-      case 'closed': return 'text-gray-600 bg-gray-100';
-      default: return 'text-gray-600 bg-gray-100';
+      case 'pending': return 'text-status-pending bg-status-pending/10 border-status-pending/20';
+      case 'acknowledged': return 'text-status-acknowledged bg-status-acknowledged/10 border-status-acknowledged/20';
+      case 'in_progress': return 'text-status-in-progress bg-status-in-progress/10 border-status-in-progress/20';
+      case 'resolved': return 'text-status-resolved bg-status-resolved/10 border-status-resolved/20';
+      case 'closed': return 'text-status-closed bg-status-closed/10 border-status-closed/20';
+      default: return 'text-muted-foreground bg-muted border-border';
     }
   };
 
@@ -99,87 +99,100 @@ const CitizenDashboard = () => {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">My Dashboard</h1>
-          <p className="text-muted-foreground">Track your reports and submit new ones</p>
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+              My Dashboard
+            </h1>
+            <p className="text-muted-foreground text-lg">Track your reports and submit new ones</p>
+          </div>
+          <Button asChild className="shadow-lg">
+            <Link to="/submit-report">
+              <Plus className="mr-2 h-4 w-4" />
+              Submit New Report
+            </Link>
+          </Button>
         </div>
-        <Button asChild>
-          <Link to="/submit-report">
-            <Plus className="mr-2 h-4 w-4" />
-            Submit New Report
-          </Link>
-        </Button>
-      </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Reports</CardTitle>
-            <FileText className="h-4 w-4 text-blue-600" />
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <Card className="border-0 shadow-lg bg-card/50 backdrop-blur-sm hover:shadow-xl transition-all duration-300">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Total Reports</CardTitle>
+              <div className="p-2 rounded-lg bg-primary/10">
+                <FileText className="h-5 w-5 text-primary" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-foreground">{stats.total}</div>
+              <p className="text-sm text-muted-foreground mt-1">All time reports</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-lg bg-card/50 backdrop-blur-sm hover:shadow-xl transition-all duration-300">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
+              <div className="p-2 rounded-lg bg-status-pending/10">
+                <Clock className="h-5 w-5 text-status-pending" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-foreground">{stats.pending}</div>
+              <p className="text-sm text-muted-foreground mt-1">Awaiting review</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-lg bg-card/50 backdrop-blur-sm hover:shadow-xl transition-all duration-300">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">In Progress</CardTitle>
+              <div className="p-2 rounded-lg bg-status-in-progress/10">
+                <AlertCircle className="h-5 w-5 text-status-in-progress" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-foreground">{stats.inProgress}</div>
+              <p className="text-sm text-muted-foreground mt-1">Being addressed</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-lg bg-card/50 backdrop-blur-sm hover:shadow-xl transition-all duration-300">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Resolved</CardTitle>
+              <div className="p-2 rounded-lg bg-status-resolved/10">
+                <CheckCircle className="h-5 w-5 text-status-resolved" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-foreground">{stats.resolved}</div>
+              <p className="text-sm text-muted-foreground mt-1">Completed</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Recent Reports */}
+        <Card className="border-0 shadow-lg bg-card/50 backdrop-blur-sm">
+          <CardHeader>
+            <CardTitle className="text-xl font-semibold">Your Reports</CardTitle>
+            <CardDescription className="text-base">
+              {userReports.length === 0 
+                ? "You haven't submitted any reports yet" 
+                : `You have ${userReports.length} report${userReports.length === 1 ? '' : 's'}`
+              }
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
-            <p className="text-xs text-muted-foreground">All time reports</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Pending</CardTitle>
-            <Clock className="h-4 w-4 text-yellow-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.pending}</div>
-            <p className="text-xs text-muted-foreground">Awaiting review</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">In Progress</CardTitle>
-            <AlertCircle className="h-4 w-4 text-orange-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.inProgress}</div>
-            <p className="text-xs text-muted-foreground">Being addressed</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Resolved</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.resolved}</div>
-            <p className="text-xs text-muted-foreground">Completed</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Recent Reports */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Your Reports</CardTitle>
-          <CardDescription>
-            {userReports.length === 0 
-              ? "You haven't submitted any reports yet" 
-              : `You have ${userReports.length} report${userReports.length === 1 ? '' : 's'}`
-            }
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
           {userReports.length === 0 ? (
-            <div className="text-center py-8">
-              <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-medium mb-2">No reports yet</h3>
-              <p className="text-muted-foreground mb-4">
+            <div className="text-center py-12">
+              <div className="p-4 rounded-full bg-primary/10 w-20 h-20 flex items-center justify-center mx-auto mb-6">
+                <FileText className="h-10 w-10 text-primary" />
+              </div>
+              <h3 className="text-xl font-semibold mb-3 text-foreground">No reports yet</h3>
+              <p className="text-muted-foreground mb-6 max-w-md mx-auto">
                 Submit your first report to get started with our municipal services
               </p>
-              <Button asChild>
+              <Button asChild className="shadow-lg">
                 <Link to="/submit-report">
                   <Plus className="mr-2 h-4 w-4" />
                   Submit Your First Report
@@ -189,27 +202,27 @@ const CitizenDashboard = () => {
           ) : (
             <div className="space-y-4">
               {userReports.map((report) => (
-                <div key={report.id} className="border rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-medium">#{report.report_number}</h3>
-                      <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(report.status)}`}>
+                <div key={report.id} className="border border-border/50 rounded-lg p-5 bg-background/50 hover:bg-accent/5 transition-colors">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-3">
+                      <h3 className="font-semibold text-foreground">#{report.report_number}</h3>
+                      <span className={`px-3 py-1 text-xs rounded-full font-medium border ${getStatusColor(report.status)}`}>
                         {report.status.replace('_', ' ')}
                       </span>
                     </div>
-                    <span className="text-sm text-muted-foreground">
+                    <span className="text-sm text-muted-foreground font-medium">
                       {formatDate(report.created_at)}
                     </span>
                   </div>
-                  <h4 className="font-medium mb-1">{report.title}</h4>
-                  <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
+                  <h4 className="font-semibold mb-2 text-foreground">{report.title}</h4>
+                  <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
                     {report.description}
                   </p>
                   <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground capitalize">
+                    <span className="text-xs text-muted-foreground capitalize font-medium">
                       {report.category.replace('_', ' ')}
                     </span>
-                    <Button variant="outline" size="sm" asChild>
+                    <Button variant="outline" size="sm" asChild className="shadow-sm">
                       <Link to={`/reports/${report.id}`}>
                         View Details
                       </Link>
@@ -219,8 +232,9 @@ const CitizenDashboard = () => {
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };

@@ -240,88 +240,95 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground flex items-center gap-2">
-            Overview of your municipal reports and activities
-            <span className="flex items-center gap-1">
-              <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'}`} />
-              <span className={isOnline ? 'text-green-600' : 'text-destructive'}>
-                {isOnline ? 'Live Updates' : 'Offline'}
+    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+              Admin Dashboard
+            </h1>
+            <p className="text-muted-foreground flex items-center gap-2 text-lg">
+              Overview of your municipal reports and activities
+              <span className="flex items-center gap-1">
+                <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'} animate-pulse`} />
+                <span className={`font-medium ${isOnline ? 'text-green-600' : 'text-destructive'}`}>
+                  {isOnline ? 'Live Updates' : 'Offline'}
+                </span>
               </span>
-            </span>
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setShowExportDialog(true)}>
-            <Download className="mr-2 h-4 w-4" />
-            Export Data
-          </Button>
-          <Button asChild>
-            <Link to="/reports">
-              <TrendingUp className="mr-2 h-4 w-4" />
-              View All Reports
-            </Link>
-          </Button>
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {statCards.map((stat) => (
-          <Card key={stat.title}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-              <stat.icon className={`h-4 w-4 ${stat.color}`} />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stat.value}</div>
-              <p className="text-xs text-muted-foreground">{stat.description}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Map and Recent Reports */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Reports Map</CardTitle>
-              <CardDescription>Geographic distribution of reported issues</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ReportsMap height="350px" />
-            </CardContent>
-          </Card>
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={() => setShowExportDialog(true)} className="shadow-sm">
+              <Download className="mr-2 h-4 w-4" />
+              Export Data
+            </Button>
+            <Button asChild className="shadow-sm">
+              <Link to="/reports">
+                <TrendingUp className="mr-2 h-4 w-4" />
+                View All Reports
+              </Link>
+            </Button>
+          </div>
         </div>
 
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Reports</CardTitle>
-              <CardDescription>Latest 5 reports submitted to your council</CardDescription>
-            </CardHeader>
-            <CardContent>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {statCards.map((stat) => (
+            <Card key={stat.title} className="border-0 shadow-lg bg-card/50 backdrop-blur-sm hover:shadow-xl transition-all duration-300">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">{stat.title}</CardTitle>
+                <div className="p-2 rounded-lg bg-primary/10">
+                  <stat.icon className={`h-5 w-5 text-primary`} />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-foreground">{stat.value}</div>
+                <p className="text-sm text-muted-foreground mt-1">{stat.description}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Map and Recent Reports */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <Card className="border-0 shadow-lg bg-card/50 backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle className="text-xl font-semibold">Reports Map</CardTitle>
+                <CardDescription className="text-base">Geographic distribution of reported issues</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-lg overflow-hidden">
+                  <ReportsMap height="350px" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="space-y-6">
+            <Card className="border-0 shadow-lg bg-card/50 backdrop-blur-sm">
+              <CardHeader>
+                <CardTitle className="text-xl font-semibold">Recent Reports</CardTitle>
+                <CardDescription className="text-base">Latest 5 reports submitted to your council</CardDescription>
+              </CardHeader>
+              <CardContent>
             <div className="space-y-4">
               {recentReports.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">
                   No reports found
                 </p>
               ) : (
-                recentReports.map((report) => (
-                  <div key={report.id} className="flex items-center space-x-4">
-                    <div className="flex-1 space-y-1">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium leading-none">
-                          #{report.report_number}
-                        </p>
-                        <span className={`px-2 py-1 text-xs rounded-full border ${getStatusColor(report.status)}`}>
-                          {report.status.replace('_', ' ')}
-                        </span>
-                      </div>
+                  recentReports.map((report) => (
+                    <div key={report.id} className="flex items-center space-x-4 p-3 rounded-lg bg-background/50 border border-border/50 hover:bg-accent/5 transition-colors">
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold leading-none text-foreground">
+                            #{report.report_number}
+                          </p>
+                          <span className={`px-3 py-1 text-xs rounded-full font-medium border ${getStatusColor(report.status)}`}>
+                            {report.status.replace('_', ' ')}
+                          </span>
+                        </div>
                       <p className="text-sm text-muted-foreground">
                         {report.title}
                       </p>
@@ -339,7 +346,7 @@ const Dashboard = () => {
             </div>
             {recentReports.length > 0 && (
               <div className="pt-4">
-                <Button variant="outline" asChild className="w-full">
+                <Button variant="outline" asChild className="w-full shadow-sm">
                   <Link to="/reports">View All Reports</Link>
                 </Button>
               </div>
@@ -347,15 +354,16 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <TestDataInserter />
+            <TestDataInserter />
+          </div>
         </div>
+        {showExportDialog && (
+          <ExportDialog 
+            open={showExportDialog} 
+            onOpenChange={setShowExportDialog}
+          />
+        )}
       </div>
-      {showExportDialog && (
-        <ExportDialog 
-          open={showExportDialog} 
-          onOpenChange={setShowExportDialog}
-        />
-      )}
     </div>
   );
 };
