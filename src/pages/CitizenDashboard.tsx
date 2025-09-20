@@ -44,29 +44,45 @@ const CitizenDashboard = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Load reports without workers to avoid infinite recursion
       const { data: reports, error } = await supabase
         .from("reports")
-        .select(`
-          *,
-          workers (
-            id,
-            full_name,
-            phone,
-            email
-          )
-        `)
+        .select("*")
         .eq("citizen_id", user.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
 
-      setUserReports(reports || []);
+      // Load worker data separately for assigned reports
+      const reportsWithWorkers = await Promise.all(
+        (reports || []).map(async (report) => {
+          let worker = null;
+          if (report.assigned_worker_id) {
+            try {
+              const { data: workerData } = await supabase
+                .from("workers")
+                .select("id, full_name, phone, email")
+                .eq("id", report.assigned_worker_id)
+                .single();
+              worker = workerData;
+            } catch (err) {
+              console.log("Worker not accessible:", err);
+            }
+          }
+          return {
+            ...report,
+            workers: worker
+          };
+        })
+      );
+
+      setUserReports(reportsWithWorkers);
       
       // Calculate stats
-      const total = reports?.length || 0;
-      const pending = reports?.filter(r => r.status === 'pending').length || 0;
-      const inProgress = reports?.filter(r => r.status === 'in_progress' || r.status === 'acknowledged').length || 0;
-      const resolved = reports?.filter(r => r.status === 'resolved' || r.status === 'closed').length || 0;
+      const total = reportsWithWorkers?.length || 0;
+      const pending = reportsWithWorkers?.filter(r => r.status === 'pending').length || 0;
+      const inProgress = reportsWithWorkers?.filter(r => r.status === 'in_progress' || r.status === 'acknowledged').length || 0;
+      const resolved = reportsWithWorkers?.filter(r => r.status === 'resolved' || r.status === 'closed').length || 0;
 
       setStats({ total, pending, inProgress, resolved });
     } catch (error: any) {
