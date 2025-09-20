@@ -31,8 +31,15 @@ export interface ExportData {
 export class ExportService {
   static async exportData(options: ExportOptions): Promise<void> {
     try {
+      console.log('Starting export with options:', options);
+      
       // Fetch data based on options
       const data = await this.fetchExportData(options);
+      console.log('Fetched export data:', { reportCount: data.reports.length, analytics: data.analytics });
+      
+      if (data.reports.length === 0) {
+        throw new Error('No data found for the selected date range and filters');
+      }
       
       switch (options.format) {
         case 'csv':
@@ -47,6 +54,8 @@ export class ExportService {
         default:
           throw new Error('Unsupported export format');
       }
+      
+      console.log('Export completed successfully');
     } catch (error) {
       console.error('Export failed:', error);
       throw error;
@@ -54,42 +63,58 @@ export class ExportService {
   }
 
   private static async fetchExportData(options: ExportOptions): Promise<ExportData> {
-    let query = supabase
-      .from("reports")
-      .select(`
-        *,
-        citizen:profiles!reports_citizen_id_fkey(full_name, email),
-        assigned_worker:workers(full_name, email),
-        council:councils(name)
-      `)
-      .gte("created_at", options.dateRange.start)
-      .lte("created_at", options.dateRange.end);
+    try {
+      console.log('Fetching data from Supabase with date range:', options.dateRange);
+      
+      let query = supabase
+        .from("reports")
+        .select(`
+          *,
+          citizen:profiles!reports_citizen_id_fkey(full_name, email),
+          assigned_worker:workers(full_name, email),
+          council:councils(name)
+        `)
+        .gte("created_at", options.dateRange.start)
+        .lte("created_at", options.dateRange.end);
 
-    // Apply filters
-    if (options.filters?.category) {
-      query = query.eq("category", options.filters.category as any);
+      // Apply filters
+      if (options.filters?.category) {
+        console.log('Applying category filter:', options.filters.category);
+        query = query.eq("category", options.filters.category as any);
+      }
+      if (options.filters?.status) {
+        console.log('Applying status filter:', options.filters.status);
+        query = query.eq("status", options.filters.status as any);
+      }
+      if (options.filters?.priority) {
+        console.log('Applying priority filter:', options.filters.priority);
+        query = query.eq("priority", options.filters.priority as any);
+      }
+      if (options.filters?.councilId) {
+        console.log('Applying council filter:', options.filters.councilId);
+        query = query.eq("council_id", options.filters.councilId);
+      }
+
+      const { data: reports, error } = await query.order("created_at", { ascending: false });
+
+      if (error) {
+        console.error('Supabase query error:', error);
+        throw new Error(`Database error: ${error.message}`);
+      }
+
+      console.log('Raw reports data:', reports?.length || 0, 'reports found');
+
+      // Process analytics data
+      const analytics = this.processAnalyticsData(reports || []);
+
+      return {
+        reports: reports || [],
+        analytics
+      };
+    } catch (error) {
+      console.error('Error fetching export data:', error);
+      throw error;
     }
-    if (options.filters?.status) {
-      query = query.eq("status", options.filters.status as any);
-    }
-    if (options.filters?.priority) {
-      query = query.eq("priority", options.filters.priority as any);
-    }
-    if (options.filters?.councilId) {
-      query = query.eq("council_id", options.filters.councilId);
-    }
-
-    const { data: reports, error } = await query.order("created_at", { ascending: false });
-
-    if (error) throw error;
-
-    // Process analytics data
-    const analytics = this.processAnalyticsData(reports || []);
-
-    return {
-      reports: reports || [],
-      analytics
-    };
   }
 
   private static processAnalyticsData(reports: any[]) {
@@ -153,68 +178,79 @@ export class ExportService {
   }
 
   private static async exportCSV(data: ExportData, options: ExportOptions): Promise<void> {
-    let csvContent = '';
+    try {
+      console.log('Generating CSV export...');
+      let csvContent = '';
 
-    // Add summary if requested
-    if (options.includeSummary) {
-      csvContent += 'MUNICIPAL REPORTS ANALYTICS SUMMARY\n';
-      csvContent += '=====================================\n';
-      csvContent += `Export Date:,${new Date().toLocaleDateString()}\n`;
-      csvContent += `Date Range:,${new Date(options.dateRange.start).toLocaleDateString()} - ${new Date(options.dateRange.end).toLocaleDateString()}\n`;
-      csvContent += `Total Reports:,${data.analytics.totalReports}\n`;
-      csvContent += `Resolved Reports:,${data.analytics.resolvedReports}\n`;
-      csvContent += `Resolution Rate:,${data.analytics.totalReports > 0 ? Math.round((data.analytics.resolvedReports / data.analytics.totalReports) * 100) : 0}%\n`;
-      csvContent += `Average Resolution Time:,${data.analytics.avgResolutionTime.toFixed(1)} days\n\n`;
+      // Add summary if requested
+      if (options.includeSummary) {
+        csvContent += 'MUNICIPAL REPORTS ANALYTICS SUMMARY\n';
+        csvContent += '=====================================\n';
+        csvContent += `Export Date:,${new Date().toLocaleDateString()}\n`;
+        csvContent += `Date Range:,${new Date(options.dateRange.start).toLocaleDateString()} - ${new Date(options.dateRange.end).toLocaleDateString()}\n`;
+        csvContent += `Total Reports:,${data.analytics.totalReports}\n`;
+        csvContent += `Resolved Reports:,${data.analytics.resolvedReports}\n`;
+        csvContent += `Resolution Rate:,${data.analytics.totalReports > 0 ? Math.round((data.analytics.resolvedReports / data.analytics.totalReports) * 100) : 0}%\n`;
+        csvContent += `Average Resolution Time:,${data.analytics.avgResolutionTime.toFixed(1)} days\n\n`;
 
-      // Add category breakdown
-      csvContent += 'REPORTS BY CATEGORY\n';
-      csvContent += 'Category,Count,Percentage\n';
-      data.analytics.reportsByCategory.forEach(item => {
-        csvContent += `${item.name},${item.value},${item.percentage}%\n`;
+        // Add category breakdown
+        csvContent += 'REPORTS BY CATEGORY\n';
+        csvContent += 'Category,Count,Percentage\n';
+        data.analytics.reportsByCategory.forEach(item => {
+          csvContent += `${item.name},${item.value},${item.percentage}%\n`;
+        });
+        csvContent += '\n';
+
+        // Add status breakdown
+        csvContent += 'REPORTS BY STATUS\n';
+        csvContent += 'Status,Count,Percentage\n';
+        data.analytics.reportsByStatus.forEach(item => {
+          csvContent += `${item.name},${item.value},${item.percentage}%\n`;
+        });
+        csvContent += '\n';
+      }
+
+      // Add detailed reports data
+      csvContent += 'DETAILED REPORTS DATA\n';
+      csvContent += 'Report Number,Title,Category,Status,Priority,Citizen Name,Citizen Email,Assigned Worker,Council,Created Date,Resolved Date,Location Address\n';
+      
+      data.reports.forEach(report => {
+        const row = [
+          report.report_number || 'N/A',
+          `"${(report.title || '').replace(/"/g, '""')}"`,
+          (report.category || 'N/A').replace('_', ' ').toUpperCase(),
+          (report.status || 'N/A').replace('_', ' ').toUpperCase(),
+          report.priority ? report.priority.toUpperCase() : 'Not Set',
+          report.citizen?.full_name || 'N/A',
+          report.citizen?.email || 'N/A',
+          report.assigned_worker?.full_name || 'Unassigned',
+          report.council?.name || 'N/A',
+          report.created_at ? new Date(report.created_at).toLocaleDateString() : 'N/A',
+          report.resolved_at ? new Date(report.resolved_at).toLocaleDateString() : 'Not Resolved',
+          `"${(report.location_address || '').replace(/"/g, '""')}"`
+        ];
+        csvContent += row.join(',') + '\n';
       });
-      csvContent += '\n';
 
-      // Add status breakdown
-      csvContent += 'REPORTS BY STATUS\n';
-      csvContent += 'Status,Count,Percentage\n';
-      data.analytics.reportsByStatus.forEach(item => {
-        csvContent += `${item.name},${item.value},${item.percentage}%\n`;
-      });
-      csvContent += '\n';
+      console.log('CSV content generated, size:', csvContent.length, 'characters');
+
+      // Download CSV
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `municipal_reports_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      console.log('CSV download initiated');
+    } catch (error) {
+      console.error('CSV export error:', error);
+      throw new Error(`CSV export failed: ${error.message}`);
     }
-
-    // Add detailed reports data
-    csvContent += 'DETAILED REPORTS DATA\n';
-    csvContent += 'Report Number,Title,Category,Status,Priority,Citizen Name,Citizen Email,Assigned Worker,Council,Created Date,Resolved Date,Location Address\n';
-    
-    data.reports.forEach(report => {
-      const row = [
-        report.report_number,
-        `"${report.title.replace(/"/g, '""')}"`,
-        report.category,
-        report.status,
-        report.priority || 'Not Set',
-        report.citizen?.full_name || 'N/A',
-        report.citizen?.email || 'N/A',
-        report.assigned_worker?.full_name || 'Unassigned',
-        report.council?.name || 'N/A',
-        new Date(report.created_at).toLocaleDateString(),
-        report.resolved_at ? new Date(report.resolved_at).toLocaleDateString() : 'Not Resolved',
-        `"${report.location_address.replace(/"/g, '""')}"`
-      ];
-      csvContent += row.join(',') + '\n';
-    });
-
-    // Download CSV
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `municipal_reports_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   }
 
   private static async exportPDF(data: ExportData, options: ExportOptions): Promise<void> {
