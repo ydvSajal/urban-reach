@@ -308,11 +308,11 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
-      get_user_council: {
+      get_user_council_direct: {
         Args: { user_uuid: string }
         Returns: string
       }
-      get_user_role: {
+      get_user_role_direct: {
         Args: { user_uuid: string }
         Returns: Database["public"]["Enums"]["user_role"]
       }
