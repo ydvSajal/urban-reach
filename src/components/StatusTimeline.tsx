@@ -39,6 +39,7 @@ interface StatusTimelineProps {
   className?: string;
   showAllByDefault?: boolean;
   maxVisibleEntries?: number;
+  highlightComments?: boolean; // New prop to highlight staff comments for citizens
 }
 
 const StatusTimeline: React.FC<StatusTimelineProps> = ({
@@ -48,6 +49,7 @@ const StatusTimeline: React.FC<StatusTimelineProps> = ({
   className = '',
   showAllByDefault = false,
   maxVisibleEntries = 5,
+  highlightComments = false,
 }) => {
   const [history, setHistory] = useState<StatusHistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -150,12 +152,18 @@ const StatusTimeline: React.FC<StatusTimelineProps> = ({
 
     // Add status history entries
     history.forEach((entry) => {
+      // Enhanced descriptions for citizens
+      const staffName = entry.profiles?.full_name || 'Municipal Staff';
+      const description = highlightComments 
+        ? `Updated by ${staffName}`
+        : entry.profiles?.full_name || 'System';
+      
       entries.push({
         id: entry.id,
         type: 'status_change' as const,
         timestamp: entry.created_at,
         title: `Status changed to ${getStatusLabel(entry.new_status)}`,
-        description: entry.profiles?.full_name || 'System',
+        description,
         notes: entry.notes,
         oldStatus: entry.old_status,
         newStatus: entry.new_status,
@@ -237,10 +245,13 @@ const StatusTimeline: React.FC<StatusTimelineProps> = ({
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <History className="h-5 w-5" />
-          Timeline
+          {highlightComments ? 'Progress & Communications' : 'Timeline'}
         </CardTitle>
         <CardDescription>
-          Track the progress and history of this report
+          {highlightComments 
+            ? 'Track progress and view updates from municipal staff' 
+            : 'Track the progress and history of this report'
+          }
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -287,14 +298,32 @@ const StatusTimeline: React.FC<StatusTimelineProps> = ({
                   </div>
                 )}
 
-                {/* Notes */}
+                {/* Notes - Enhanced display for citizen view */}
                 {entry.notes && (
-                  <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                  <div className={`mt-2 p-3 rounded-lg text-sm ${
+                    highlightComments 
+                      ? 'bg-blue-50 border border-blue-200' 
+                      : 'bg-muted'
+                  }`}>
                     <div className="flex items-start gap-2">
-                      <MessageSquare className="h-4 w-4 mt-0.5 text-amber-600" />
-                      <div>
-                        <h5 className="text-sm font-medium text-amber-800 mb-1">Staff Note:</h5>
-                        <p className="text-sm text-amber-900">{entry.notes}</p>
+                      <MessageSquare className={`h-4 w-4 mt-0.5 ${
+                        highlightComments 
+                          ? 'text-blue-600' 
+                          : 'text-muted-foreground'
+                      }`} />
+                      <div className="flex-1">
+                        {highlightComments && (
+                          <div className="font-medium text-blue-900 text-xs mb-1">
+                            📢 Staff Update
+                          </div>
+                        )}
+                        <span className={
+                          highlightComments 
+                            ? 'text-blue-800 font-medium' 
+                            : 'italic'
+                        }>
+                          {entry.notes}
+                        </span>
                       </div>
                     </div>
                   </div>

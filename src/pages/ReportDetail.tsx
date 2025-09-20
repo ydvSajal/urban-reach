@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { ArrowLeft, MapPin, User, Phone, Mail, Save } from "lucide-react";
+import { ArrowLeft, MapPin, User, Phone, Mail, Save, MessageSquare } from "lucide-react";
 import ImageGallery from "@/components/ImageGallery";
 import WorkerAssignment from "@/components/WorkerAssignment";
 import StatusUpdate from "@/components/StatusUpdate";
@@ -32,6 +32,7 @@ interface Report {
   created_at: string;
   updated_at: string;
   resolved_at: string | null;
+  assigned_worker_id: string | null;
   profiles: {
     full_name: string | null;
     email: string | null;
@@ -40,8 +41,9 @@ interface Report {
   workers: {
     id: string;
     full_name: string | null;
-    phone: string | null;
     email: string | null;
+    phone: string | null;
+    specialty: string | null;
   } | null;
 }
 
@@ -152,12 +154,15 @@ const ReportDetail = () => {
       // Fetch worker if assigned
       let worker = null;
       if (data.assigned_worker_id) {
-        const { data: workerData } = await supabase
+        const { data: workerData, error: workerError } = await supabase
           .from("workers")
-          .select("id, full_name, phone, email")
+          .select("id, full_name, email, phone, specialty")
           .eq("id", data.assigned_worker_id)
           .single();
-        worker = workerData;
+        if (workerError) {
+          console.warn("Worker fetch error (possibly RLS):", workerError?.message);
+        }
+        worker = workerData || null;
       }
 
       const reportWithRelations = {
@@ -356,7 +361,9 @@ const ReportDetail = () => {
     if (!report) return;
 
     try {
-      await updateStatusWithNotification(report.id, newStatus, notes, userRole);
+      const { data: authUser } = await supabase.auth.getUser();
+      const changerId = authUser?.user?.id || '';
+      await updateStatusWithNotification(report.id, newStatus, changerId, notes);
       
       // Reload data to reflect changes
       await loadReportDetail();
@@ -436,9 +443,13 @@ const ReportDetail = () => {
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center gap-4">
-        <Button variant="outline" size="sm" onClick={() => navigate("/reports")}>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => navigate(userRole === 'citizen' ? '/my-reports' : '/reports')}
+        >
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Reports
+          Back to {userRole === 'citizen' ? 'My Reports' : 'Reports'}
         </Button>
         <div>
           <h1 className="text-2xl font-bold">Report #{report.report_number}</h1>
@@ -535,60 +546,110 @@ const ReportDetail = () => {
             </CardContent>
           </Card>
 
-          {/* Assigned Worker Information - Visible to Citizens */}
-          {report.workers && (
-            <Card className="bg-blue-50 border-blue-200">
+          {/* Assigned Worker Information - For Citizens */}
+          {userRole === 'citizen' && report.workers && (
+            <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-blue-800">
+                <CardTitle className="flex items-center gap-2">
                   <User className="h-5 w-5" />
                   Assigned Worker
                 </CardTitle>
-                <CardDescription className="text-blue-600">
-                  Contact information for your assigned municipal worker
+                <CardDescription>
+                  Your dedicated municipal worker handling this report
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <h4 className="font-medium text-sm text-blue-800">Worker Name</h4>
-                      <p className="text-sm font-semibold text-blue-900">{report.workers.full_name}</p>
+                      <h4 className="font-medium text-sm">Name</h4>
+                      <p className="text-sm font-semibold">{report.workers.full_name || 'Not assigned'}</p>
                     </div>
-                    <div>
-                      <h4 className="font-medium text-sm text-blue-800 flex items-center gap-1">
-                        <Mail className="h-3 w-3" />
-                        Email Contact
-                      </h4>
-                      <p className="text-sm text-blue-900">{report.workers.email || 'Not provided'}</p>
+                    {report.workers.specialty && (
+                      <div>
+                        <h4 className="font-medium text-sm">Specialty</h4>
+                        <p className="text-sm capitalize">{report.workers.specialty.replace('_', ' ')}</p>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Contact Information */}
+                  <div className="pt-2 border-t">
+                    <h4 className="font-medium text-sm mb-3">Contact Information</h4>
+                    <div className="space-y-2">
+                      {report.workers.email && (
+                        <div className="flex items-center gap-2">
+                          <Mail className="h-4 w-4 text-muted-foreground" />
+                          <a 
+                            href={`mailto:${report.workers.email}`}
+                            className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                          >
+                            {report.workers.email}
+                          </a>
+                        </div>
+                      )}
+                      {report.workers.phone && (
+                        <div className="flex items-center gap-2">
+                          <Phone className="h-4 w-4 text-muted-foreground" />
+                          <a 
+                            href={`tel:${report.workers.phone}`}
+                            className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
+                          >
+                            {report.workers.phone}
+                          </a>
+                        </div>
+                      )}
                     </div>
                   </div>
-                  {report.workers.phone && (
-                    <div>
-                      <h4 className="font-medium text-sm text-blue-800 flex items-center gap-1">
-                        <Phone className="h-3 w-3" />
-                        Phone Contact
-                      </h4>
-                      <p className="text-sm font-semibold text-blue-900">{report.workers.phone}</p>
+
+                  {/* Worker Status Indicator */}
+                  <div className="pt-2 border-t">
+                    <div className="flex items-center gap-2 text-sm mb-3">
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <span className="text-muted-foreground">Worker assigned and active</span>
                     </div>
-                  )}
-                  <div className="bg-blue-100 border border-blue-300 rounded p-3">
-                    <p className="text-xs text-blue-700">
-                      💡 You can contact your assigned worker for updates on your report progress or any questions about the work being done.
-                    </p>
+                    
+                    {/* Communication Tip for Citizens */}
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                      <div className="flex items-start gap-2">
+                        <MessageSquare className="h-4 w-4 text-blue-600 mt-0.5" />
+                        <div className="text-sm">
+                          <p className="font-medium text-blue-900 mb-1">Need to communicate?</p>
+                          <p className="text-blue-700">
+                            Feel free to contact your assigned worker directly using the contact information above. 
+                            They can provide updates and answer questions about your report.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
           )}
 
-          {/* Status Timeline - Visible to all users */}
-          <StatusTimeline
-            reportId={report.id}
-            reportCreatedAt={report.created_at}
-            reportResolvedAt={report.resolved_at}
-            showAllByDefault={userRole === 'citizen'}
-            maxVisibleEntries={userRole === 'citizen' ? 10 : 5}
-          />
+          {/* No Worker Assigned - For Citizens */}
+          {userRole === 'citizen' && (!report.assigned_worker_id || !report.workers) && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <User className="h-5 w-5" />
+                  Assignment Status
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-4">
+                  <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground mb-2">
+                    <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                    <span>Awaiting worker assignment</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Your report is in queue and will be assigned to a worker soon.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Actions Sidebar */}
@@ -651,6 +712,16 @@ const ReportDetail = () => {
           </Card>
           )}
 
+          {/* Status Timeline - Enhanced for Citizens */}
+          <StatusTimeline
+            reportId={report.id}
+            reportCreatedAt={report.created_at}
+            reportResolvedAt={report.resolved_at}
+            showAllByDefault={userRole === 'citizen'} // Show all entries for citizens
+            maxVisibleEntries={userRole === 'citizen' ? 10 : 5} // More entries for citizens
+            highlightComments={userRole === 'citizen'} // Highlight staff comments for citizens
+          />
+
           {/* Report Info */}
           <Card>
             <CardHeader>
@@ -663,18 +734,32 @@ const ReportDetail = () => {
                   {report.priority}
                 </Badge>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Assigned to:</span>
-                <span>{report.workers?.full_name || 'Unassigned'}</span>
-              </div>
+              
+              {/* Show assignment info only for admin/worker, citizens see it in dedicated section */}
+              {userRole !== 'citizen' && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Assigned to:</span>
+                  <span>{report.workers?.full_name || 'Unassigned'}</span>
+                </div>
+              )}
+              
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Created:</span>
                 <span>{formatDate(report.created_at)}</span>
               </div>
+              
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Last updated:</span>
                 <span>{formatDate(report.updated_at)}</span>
               </div>
+              
+              {/* Additional info for citizens */}
+              {userRole === 'citizen' && report.resolved_at && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Resolved:</span>
+                  <span>{formatDate(report.resolved_at)}</span>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

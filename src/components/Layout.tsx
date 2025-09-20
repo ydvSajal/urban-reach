@@ -152,18 +152,6 @@ const Layout = ({ children, userRole }: LayoutProps) => {
           {children}
         </main>
       </div>
-
-      {userRole === 'admin' && (
-        <Button
-          variant="secondary"
-          size="sm"
-          className="fixed bottom-4 right-4 z-50"
-          onClick={() => navigate("/citizen-dashboard")}
-          aria-label="Switch to Citizen View (Dev Mode)"
-        >
-          Dev: Citizen View
-        </Button>
-      )}
     </div>
   );
 };

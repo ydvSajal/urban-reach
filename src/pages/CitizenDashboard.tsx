@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Plus, FileText, Clock, CheckCircle, AlertCircle } from "lucide-react";
+import { Plus, FileText, Clock, CheckCircle, AlertCircle, User } from "lucide-react";
 import { Link } from "react-router-dom";
 
 interface UserReport {
@@ -14,6 +14,9 @@ interface UserReport {
   status: string;
   created_at: string;
   description: string;
+  workers?: {
+    full_name: string | null;
+  } | null;
 }
 
 const CitizenDashboard = () => {
@@ -37,7 +40,18 @@ const CitizenDashboard = () => {
 
       const { data: reports, error } = await supabase
         .from("reports")
-        .select("id, report_number, title, category, status, created_at, description")
+        .select(`
+          id, 
+          report_number, 
+          title, 
+          category, 
+          status, 
+          created_at, 
+          description,
+          workers:assigned_worker_id (
+            full_name
+          )
+        `)
         .eq("citizen_id", user.id)
         .order("created_at", { ascending: false });
 
@@ -218,6 +232,17 @@ const CitizenDashboard = () => {
                   <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
                     {report.description}
                   </p>
+                  
+                  {/* Worker Assignment Info */}
+                  {report.workers?.full_name && (
+                    <div className="flex items-center gap-2 mb-3 p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                      <User className="h-4 w-4 text-blue-600" />
+                      <span className="text-sm text-blue-700">
+                        <span className="font-medium">Assigned to:</span> {report.workers.full_name}
+                      </span>
+                    </div>
+                  )}
+                  
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-muted-foreground capitalize font-medium">
                       {report.category.replace('_', ' ')}

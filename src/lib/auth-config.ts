@@ -198,63 +198,15 @@ export const verifyOTP = async (email: string, token: string) => {
   }, 'verifyOTP');
 };
 
-// Admin bypass for development
-export const ADMIN_EMAIL = 'sajalkumar1765@gmail.com';
-export const DEV_ADMIN_PASSWORD = 'dev-admin-password';
-
+// Production admin authentication - uses OTP flow only
 export const signInAdmin = async (email: string) => {
-  if (email !== ADMIN_EMAIL) {
-    const error = new Error('Admin access not authorized for this email');
+  // Validate admin email domain for security
+  if (!email.endsWith('@bennett.edu.in')) {
+    const error = new Error('Admin access not authorized for this email domain');
     (error as any).code = 'UNAUTHORIZED';
     throw error;
   }
 
-  const retryManager = new RetryManager(2, 1000, 3000);
-  
-  return await retryManager.execute(async () => {
-    try {
-      // Try password login first
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password: DEV_ADMIN_PASSWORD,
-      });
-
-      if (error) {
-        // If password login fails, create the admin user
-        const { error: signUpError } = await supabase.auth.signUp({
-          email,
-          password: DEV_ADMIN_PASSWORD,
-          options: {
-            data: {
-              full_name: 'Admin Developer',
-              role: 'admin'
-            }
-          }
-        });
-
-        if (signUpError && !signUpError.message.includes('already registered')) {
-          logError(signUpError, 'signInAdmin:signUp', { email });
-          throw signUpError;
-        }
-
-        // Try signing in again
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email,
-          password: DEV_ADMIN_PASSWORD,
-        });
-
-        if (signInError) {
-          logError(signInError, 'signInAdmin:signIn', { email });
-          throw signInError;
-        }
-      }
-
-      return { success: true };
-    } catch (error: any) {
-      const classifiedError = classifyError(error);
-      const newError = new Error(classifiedError.userMessage);
-      (newError as any).code = classifiedError.code;
-      throw newError;
-    }
-  });
+  // Use the standard OTP flow for admin authentication
+  return await sendOTP(email);
 };
