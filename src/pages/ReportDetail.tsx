@@ -142,6 +142,8 @@ const ReportDetail = () => {
       if (error) throw error;
       if (!data) throw new Error("Report not found");
 
+      console.log("Report data:", data);
+
       // Fetch profile separately
       const { data: profile } = await supabase
         .from("profiles")
@@ -152,11 +154,14 @@ const ReportDetail = () => {
       // Fetch worker if assigned
       let worker = null;
       if (data.assigned_worker_id) {
-        const { data: workerData } = await supabase
+        console.log("Fetching worker for ID:", data.assigned_worker_id);
+        const { data: workerData, error: workerError } = await supabase
           .from("workers")
           .select("id, full_name, phone, email")
           .eq("id", data.assigned_worker_id)
           .single();
+        
+        console.log("Worker data:", workerData, "Error:", workerError);
         worker = workerData;
       }
 
@@ -166,6 +171,7 @@ const ReportDetail = () => {
         workers: worker
       };
 
+      console.log("Final report with relations:", reportWithRelations);
       setReport(reportWithRelations);
       setNewStatus(data.status);
       setNewPriority(data.priority);

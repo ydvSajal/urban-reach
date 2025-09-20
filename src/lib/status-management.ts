@@ -16,34 +16,31 @@ export interface StatusHistoryEntry {
 
 export const getStatusHistory = async (reportId: string): Promise<StatusHistoryEntry[]> => {
   try {
-    const { data, error } = await supabase
+    const { data: historyData, error } = await supabase
       .from('report_status_history')
-      .select(`
-        *,
-        profiles:changed_by (
-          full_name
-        )
-      `)
+      .select('*')
       .eq('report_id', reportId)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
 
-    return (data || []).map(entry => {
-      // Safely handle profiles data
-      let profileData = { full_name: 'Unknown User' };
-      if (entry.profiles && typeof entry.profiles === 'object' && entry.profiles !== null) {
-        const p = entry.profiles as any;
-        if (p.full_name) {
-          profileData = { full_name: p.full_name };
-        }
-      }
+    // Manually fetch profile information for each entry
+    const historyWithProfiles = await Promise.all(
+      (historyData || []).map(async (entry) => {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('user_id', entry.changed_by)
+          .single();
 
-      return {
-        ...entry,
-        profiles: profileData
-      };
-    });
+        return {
+          ...entry,
+          profiles: profile || { full_name: 'Unknown User' }
+        };
+      })
+    );
+
+    return historyWithProfiles;
   } catch (error) {
     console.error('Error fetching status history:', error);
     return [];
