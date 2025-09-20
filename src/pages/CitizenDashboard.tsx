@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { Plus, FileText, Clock, CheckCircle, AlertCircle, User, Phone, Mail } from "lucide-react";
+import { Plus, FileText, Clock, CheckCircle, AlertCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 
 interface UserReport {
@@ -14,15 +14,6 @@ interface UserReport {
   status: string;
   created_at: string;
   description: string;
-  priority: string;
-  location_address: string;
-  assigned_worker_id: string | null;
-  workers: {
-    id: string;
-    full_name: string;
-    phone: string | null;
-    email: string;
-  } | null;
 }
 
 const CitizenDashboard = () => {
@@ -44,45 +35,21 @@ const CitizenDashboard = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Load reports without workers to avoid infinite recursion
       const { data: reports, error } = await supabase
         .from("reports")
-        .select("*")
+        .select("id, report_number, title, category, status, created_at, description")
         .eq("citizen_id", user.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
 
-      // Load worker data separately for assigned reports
-      const reportsWithWorkers = await Promise.all(
-        (reports || []).map(async (report) => {
-          let worker = null;
-          if (report.assigned_worker_id) {
-            try {
-              const { data: workerData } = await supabase
-                .from("workers")
-                .select("id, full_name, phone, email")
-                .eq("id", report.assigned_worker_id)
-                .single();
-              worker = workerData;
-            } catch (err) {
-              console.log("Worker not accessible:", err);
-            }
-          }
-          return {
-            ...report,
-            workers: worker
-          };
-        })
-      );
-
-      setUserReports(reportsWithWorkers);
+      setUserReports(reports || []);
       
       // Calculate stats
-      const total = reportsWithWorkers?.length || 0;
-      const pending = reportsWithWorkers?.filter(r => r.status === 'pending').length || 0;
-      const inProgress = reportsWithWorkers?.filter(r => r.status === 'in_progress' || r.status === 'acknowledged').length || 0;
-      const resolved = reportsWithWorkers?.filter(r => r.status === 'resolved' || r.status === 'closed').length || 0;
+      const total = reports?.length || 0;
+      const pending = reports?.filter(r => r.status === 'pending').length || 0;
+      const inProgress = reports?.filter(r => r.status === 'in_progress' || r.status === 'acknowledged').length || 0;
+      const resolved = reports?.filter(r => r.status === 'resolved' || r.status === 'closed').length || 0;
 
       setStats({ total, pending, inProgress, resolved });
     } catch (error: any) {
@@ -251,42 +218,10 @@ const CitizenDashboard = () => {
                   <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
                     {report.description}
                   </p>
-                  
-                  {/* Worker Assignment Info */}
-                  {report.workers && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
-                      <div className="flex items-center gap-2 mb-2">
-                        <User className="h-4 w-4 text-blue-600" />
-                        <span className="text-sm font-medium text-blue-800">Assigned Worker</span>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-sm font-semibold text-blue-900">{report.workers.full_name}</p>
-                        <div className="flex items-center gap-4 text-xs text-blue-700">
-                          {report.workers.phone && (
-                            <div className="flex items-center gap-1">
-                              <Phone className="h-3 w-3" />
-                              <span>{report.workers.phone}</span>
-                            </div>
-                          )}
-                          <div className="flex items-center gap-1">
-                            <Mail className="h-3 w-3" />
-                            <span>{report.workers.email}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <span className="capitalize">{report.category.replace('_', ' ')}</span>
-                      {report.location_address && (
-                        <>
-                          <span>•</span>
-                          <span className="truncate">{report.location_address}</span>
-                        </>
-                      )}
-                    </div>
+                    <span className="text-xs text-muted-foreground capitalize font-medium">
+                      {report.category.replace('_', ' ')}
+                    </span>
                     <Button variant="outline" size="sm" asChild className="shadow-sm">
                       <Link to={`/reports/${report.id}`}>
                         View Details

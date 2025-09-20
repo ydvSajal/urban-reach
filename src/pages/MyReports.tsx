@@ -47,39 +47,23 @@ const MyReports = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Load reports without workers to avoid infinite recursion
-      const { data: reports, error } = await supabase
+      const { data, error } = await supabase
         .from("reports")
-        .select("*")
+        .select(`
+          *,
+          workers (
+            id,
+            full_name,
+            phone,
+            email
+          )
+        `)
         .eq("citizen_id", user.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
 
-      // Load worker data separately for assigned reports
-      const reportsWithWorkers = await Promise.all(
-        (reports || []).map(async (report) => {
-          let worker = null;
-          if (report.assigned_worker_id) {
-            try {
-              const { data: workerData } = await supabase
-                .from("workers")
-                .select("id, full_name, phone, email")
-                .eq("id", report.assigned_worker_id)
-                .single();
-              worker = workerData;
-            } catch (err) {
-              console.log("Worker not accessible:", err);
-            }
-          }
-          return {
-            ...report,
-            workers: worker
-          };
-        })
-      );
-
-      setReports(reportsWithWorkers);
+      setReports(data || []);
     } catch (error: any) {
       console.error("Error loading reports:", error);
       toast({
