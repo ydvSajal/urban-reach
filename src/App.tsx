@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense, lazy } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { User, Session } from "@supabase/supabase-js";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -11,24 +11,27 @@ import Layout from "./components/Layout";
 import CitizenLayout from "./components/CitizenLayout";
 import WorkerLayout from "./components/WorkerLayout";
 import { NotificationProvider } from "./components/NotificationProvider";
-import Auth from "./pages/Auth";
-import Dashboard from "./pages/Dashboard";
-import Reports from "./pages/Reports";
-import ReportDetail from "./pages/ReportDetail";
-import Workers from "./pages/Workers";
-import Analytics from "./pages/Analytics";
-import Maps from "./pages/Maps";
-import CitizenDashboard from "./pages/CitizenDashboard";
-import WorkerDashboard from "./pages/WorkerDashboard";
-import WorkerAssignments from "./pages/WorkerAssignments";
-import WorkerTaskDetail from "./pages/WorkerTaskDetail";
-import WorkerReports from "./pages/WorkerReports";
-import SubmitReport from "./pages/SubmitReport";
-import MyReports from "./pages/MyReports";
-import NotificationSettings from "./pages/NotificationSettings";
-import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
 import MobilePerformanceMonitor from "./components/MobilePerformanceMonitor";
+import PageLoading from "./components/PageLoading";
+
+// Lazy load page components for code splitting
+const Auth = lazy(() => import("./pages/Auth"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Reports = lazy(() => import("./pages/Reports"));
+const ReportDetail = lazy(() => import("./pages/ReportDetail"));
+const Workers = lazy(() => import("./pages/Workers"));
+const Analytics = lazy(() => import("./pages/Analytics"));
+const Maps = lazy(() => import("./pages/Maps"));
+const CitizenDashboard = lazy(() => import("./pages/CitizenDashboard"));
+const WorkerDashboard = lazy(() => import("./pages/WorkerDashboard"));
+const WorkerAssignments = lazy(() => import("./pages/WorkerAssignments"));
+const WorkerTaskDetail = lazy(() => import("./pages/WorkerTaskDetail"));
+const WorkerReports = lazy(() => import("./pages/WorkerReports"));
+const SubmitReport = lazy(() => import("./pages/SubmitReport"));
+const MyReports = lazy(() => import("./pages/MyReports"));
+const NotificationSettings = lazy(() => import("./pages/NotificationSettings"));
+const Index = lazy(() => import("./pages/Index"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
 
@@ -207,97 +210,99 @@ const App = () => {
             <Sonner />
             <MobilePerformanceMonitor />
             <HashRouter>
-              <Routes>
-                {/* Public Routes */}
-                <Route 
-                  path="/" 
-                  element={user ? <Navigate to={getDefaultRoute(effectiveRole)} replace /> : <Index />} 
-                />
-                
-                {/* Auth Routes - Clear localStorage on successful auth */}
-                <Route 
-                  path="/auth/admin" 
-                  element={!user ? <Auth userType="admin" onSuccess={() => {
-                    try { localStorage.removeItem(LAST_ROLE_KEY); } catch {}
-                  }} /> : <Navigate to="/dashboard" replace />} 
-                />
-                <Route 
-                  path="/auth/worker" 
-                  element={!user ? <Auth userType="worker" onSuccess={() => {
-                    try { localStorage.removeItem(LAST_ROLE_KEY); } catch {}
-                  }} /> : <Navigate to="/worker-dashboard" replace />} 
-                />
-                <Route 
-                  path="/auth/citizen" 
-                  element={!user ? <Auth userType="citizen" onSuccess={() => {
-                    try { localStorage.removeItem(LAST_ROLE_KEY); } catch {}
-                  }} /> : <Navigate to="/citizen-dashboard" replace />} 
-                />
-                <Route 
-                  path="/auth" 
-                  element={!user ? <Auth userType="citizen" onSuccess={() => {
-                    try { localStorage.removeItem(LAST_ROLE_KEY); } catch {}
-                  }} /> : <Navigate to={getDefaultRoute(effectiveRole)} replace />} 
-                />
+              <Suspense fallback={<PageLoading />}>
+                <Routes>
+                  {/* Public Routes */}
+                  <Route 
+                    path="/" 
+                    element={user ? <Navigate to={getDefaultRoute(effectiveRole)} replace /> : <Index />} 
+                  />
+                  
+                  {/* Auth Routes - Clear localStorage on successful auth */}
+                  <Route 
+                    path="/auth/admin" 
+                    element={!user ? <Auth userType="admin" onSuccess={() => {
+                      try { localStorage.removeItem(LAST_ROLE_KEY); } catch {}
+                    }} /> : <Navigate to="/dashboard" replace />} 
+                  />
+                  <Route 
+                    path="/auth/worker" 
+                    element={!user ? <Auth userType="worker" onSuccess={() => {
+                      try { localStorage.removeItem(LAST_ROLE_KEY); } catch {}
+                    }} /> : <Navigate to="/worker-dashboard" replace />} 
+                  />
+                  <Route 
+                    path="/auth/citizen" 
+                    element={!user ? <Auth userType="citizen" onSuccess={() => {
+                      try { localStorage.removeItem(LAST_ROLE_KEY); } catch {}
+                    }} /> : <Navigate to="/citizen-dashboard" replace />} 
+                  />
+                  <Route 
+                    path="/auth" 
+                    element={!user ? <Auth userType="citizen" onSuccess={() => {
+                      try { localStorage.removeItem(LAST_ROLE_KEY); } catch {}
+                    }} /> : <Navigate to={getDefaultRoute(effectiveRole)} replace />} 
+                  />
 
-                {/* Protected Routes */}
-                {user && (
-                  <>
-                    {/* Admin Routes */}
-                    {effectiveRole === 'admin' && (
-                      <>
-                        <Route path="/dashboard" element={<Layout userRole={effectiveRole}><Dashboard /></Layout>} />
-                        <Route path="/reports" element={<Layout userRole={effectiveRole}><Reports /></Layout>} />
-                        <Route path="/reports/:id" element={<Layout userRole={effectiveRole}><ReportDetail /></Layout>} />
-                        <Route path="/workers" element={<Layout userRole={effectiveRole}><Workers /></Layout>} />
-                        <Route path="/analytics" element={<Layout userRole={effectiveRole}><Analytics /></Layout>} />
-                        <Route path="/maps" element={<Layout userRole={effectiveRole}><Maps /></Layout>} />
-                        <Route path="/notifications" element={<Layout userRole={effectiveRole}><NotificationSettings /></Layout>} />
-                      </>
-                    )}
+                  {/* Protected Routes */}
+                  {user && (
+                    <>
+                      {/* Admin Routes */}
+                      {effectiveRole === 'admin' && (
+                        <>
+                          <Route path="/dashboard" element={<Layout userRole={effectiveRole}><Dashboard /></Layout>} />
+                          <Route path="/reports" element={<Layout userRole={effectiveRole}><Reports /></Layout>} />
+                          <Route path="/reports/:id" element={<Layout userRole={effectiveRole}><ReportDetail /></Layout>} />
+                          <Route path="/workers" element={<Layout userRole={effectiveRole}><Workers /></Layout>} />
+                          <Route path="/analytics" element={<Layout userRole={effectiveRole}><Analytics /></Layout>} />
+                          <Route path="/maps" element={<Layout userRole={effectiveRole}><Maps /></Layout>} />
+                          <Route path="/notifications" element={<Layout userRole={effectiveRole}><NotificationSettings /></Layout>} />
+                        </>
+                      )}
 
-                    {/* Worker Routes */}
-                    {effectiveRole === 'worker' && (
-                      <>
-                        <Route path="/worker-dashboard" element={<WorkerLayout><WorkerDashboard /></WorkerLayout>} />
-                        <Route path="/worker/assignments" element={<WorkerLayout><WorkerAssignments /></WorkerLayout>} />
-                        <Route path="/worker/reports" element={<WorkerLayout><WorkerReports /></WorkerLayout>} />
-                        <Route path="/worker/task/:id" element={<WorkerLayout><WorkerTaskDetail /></WorkerLayout>} />
-                        <Route path="/reports/:id" element={<WorkerLayout><ReportDetail /></WorkerLayout>} />
-                        <Route path="/notifications" element={<WorkerLayout><NotificationSettings /></WorkerLayout>} />
-                      </>
-                    )}
+                      {/* Worker Routes */}
+                      {effectiveRole === 'worker' && (
+                        <>
+                          <Route path="/worker-dashboard" element={<WorkerLayout><WorkerDashboard /></WorkerLayout>} />
+                          <Route path="/worker/assignments" element={<WorkerLayout><WorkerAssignments /></WorkerLayout>} />
+                          <Route path="/worker/reports" element={<WorkerLayout><WorkerReports /></WorkerLayout>} />
+                          <Route path="/worker/task/:id" element={<WorkerLayout><WorkerTaskDetail /></WorkerLayout>} />
+                          <Route path="/reports/:id" element={<WorkerLayout><ReportDetail /></WorkerLayout>} />
+                          <Route path="/notifications" element={<WorkerLayout><NotificationSettings /></WorkerLayout>} />
+                        </>
+                      )}
 
-                    {/* Citizen Routes */}
-                    {effectiveRole === 'citizen' && (
-                      <>
-                        <Route path="/citizen-dashboard" element={<CitizenLayout><CitizenDashboard /></CitizenLayout>} />
-                        <Route path="/submit-report" element={<CitizenLayout><SubmitReport /></CitizenLayout>} />
-                        <Route path="/my-reports" element={<CitizenLayout><MyReports /></CitizenLayout>} />
-                        <Route path="/reports/:id" element={<CitizenLayout><ReportDetail /></CitizenLayout>} />
-                        <Route path="/notifications" element={<CitizenLayout><NotificationSettings /></CitizenLayout>} />
-                      </>
-                    )}
+                      {/* Citizen Routes */}
+                      {effectiveRole === 'citizen' && (
+                        <>
+                          <Route path="/citizen-dashboard" element={<CitizenLayout><CitizenDashboard /></CitizenLayout>} />
+                          <Route path="/submit-report" element={<CitizenLayout><SubmitReport /></CitizenLayout>} />
+                          <Route path="/my-reports" element={<CitizenLayout><MyReports /></CitizenLayout>} />
+                          <Route path="/reports/:id" element={<CitizenLayout><ReportDetail /></CitizenLayout>} />
+                          <Route path="/notifications" element={<CitizenLayout><NotificationSettings /></CitizenLayout>} />
+                        </>
+                      )}
 
-                    {/* Role-based redirects for unauthorized access */}
-                    <Route 
-                      path="/dashboard" 
-                      element={effectiveRole !== 'admin' ? <Navigate to={getDefaultRoute(effectiveRole)} replace /> : null} 
-                    />
-                    <Route 
-                      path="/worker-dashboard" 
-                      element={effectiveRole !== 'worker' ? <Navigate to={getDefaultRoute(effectiveRole)} replace /> : null} 
-                    />
-                    <Route 
-                      path="/citizen-dashboard" 
-                      element={effectiveRole !== 'citizen' ? <Navigate to={getDefaultRoute(effectiveRole)} replace /> : null} 
-                    />
-                  </>
-                )}
+                      {/* Role-based redirects for unauthorized access */}
+                      <Route 
+                        path="/dashboard" 
+                        element={effectiveRole !== 'admin' ? <Navigate to={getDefaultRoute(effectiveRole)} replace /> : null} 
+                      />
+                      <Route 
+                        path="/worker-dashboard" 
+                        element={effectiveRole !== 'worker' ? <Navigate to={getDefaultRoute(effectiveRole)} replace /> : null} 
+                      />
+                      <Route 
+                        path="/citizen-dashboard" 
+                        element={effectiveRole !== 'citizen' ? <Navigate to={getDefaultRoute(effectiveRole)} replace /> : null} 
+                      />
+                    </>
+                  )}
 
-                {/* 404 fallback */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
+                  {/* 404 fallback */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </Suspense>
             </HashRouter>
           </NotificationProvider>
         </TooltipProvider>
