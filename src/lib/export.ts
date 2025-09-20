@@ -66,13 +66,13 @@ export class ExportService {
     try {
       console.log('Fetching data from Supabase with date range:', options.dateRange);
       
-      let query = supabase
+      // First get reports
+      let reportsQuery = supabase
         .from("reports")
         .select(`
           *,
-          citizen:profiles!reports_citizen_id_fkey(full_name, email),
-          assigned_worker:workers(full_name, email),
-          council:councils(name)
+          workers(full_name, email),
+          councils(name)
         `)
         .gte("created_at", options.dateRange.start)
         .lte("created_at", options.dateRange.end);
@@ -80,35 +80,59 @@ export class ExportService {
       // Apply filters
       if (options.filters?.category) {
         console.log('Applying category filter:', options.filters.category);
-        query = query.eq("category", options.filters.category as any);
+        reportsQuery = reportsQuery.eq("category", options.filters.category as any);
       }
       if (options.filters?.status) {
         console.log('Applying status filter:', options.filters.status);
-        query = query.eq("status", options.filters.status as any);
+        reportsQuery = reportsQuery.eq("status", options.filters.status as any);
       }
       if (options.filters?.priority) {
         console.log('Applying priority filter:', options.filters.priority);
-        query = query.eq("priority", options.filters.priority as any);
+        reportsQuery = reportsQuery.eq("priority", options.filters.priority as any);
       }
       if (options.filters?.councilId) {
         console.log('Applying council filter:', options.filters.councilId);
-        query = query.eq("council_id", options.filters.councilId);
+        reportsQuery = reportsQuery.eq("council_id", options.filters.councilId);
       }
 
-      const { data: reports, error } = await query.order("created_at", { ascending: false });
+      const { data: reports, error: reportsError } = await reportsQuery.order("created_at", { ascending: false });
 
-      if (error) {
-        console.error('Supabase query error:', error);
-        throw new Error(`Database error: ${error.message}`);
+      if (reportsError) {
+        console.error('Supabase reports query error:', reportsError);
+        throw new Error(`Database error: ${reportsError.message}`);
       }
 
       console.log('Raw reports data:', reports?.length || 0, 'reports found');
 
+      // Get citizen profiles for the reports
+      let reportsWithCitizens = reports || [];
+      if (reports && reports.length > 0) {
+        const citizenIds = [...new Set(reports.map(r => r.citizen_id))];
+        
+        const { data: profiles, error: profilesError } = await supabase
+          .from("profiles")
+          .select("user_id, full_name, email")
+          .in("user_id", citizenIds);
+
+        if (profilesError) {
+          console.error('Supabase profiles query error:', profilesError);
+          // Continue without profile data rather than failing completely
+          console.warn('Continuing without citizen profile data');
+        } else {
+          // Merge profile data with reports
+          const profilesMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
+          reportsWithCitizens = reports.map(report => ({
+            ...report,
+            citizen: profilesMap.get(report.citizen_id) || null
+          }));
+        }
+      }
+
       // Process analytics data
-      const analytics = this.processAnalyticsData(reports || []);
+      const analytics = this.processAnalyticsData(reportsWithCitizens);
 
       return {
-        reports: reports || [],
+        reports: reportsWithCitizens,
         analytics
       };
     } catch (error) {
