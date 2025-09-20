@@ -158,11 +158,11 @@ const App = () => {
   })();
   
   // CRITICAL FIX: Only use lastKnownRole when there's no user session
-  // When user is authenticated, wait for profile to load or show loading
+  // When user is authenticated, always wait for profile to load properly
   const effectiveRole: UserRole = 
     user && userProfile ? userProfile.role : 
     !user ? lastKnownRole : 
-    'citizen'; // fallback for authenticated users without profile
+    lastKnownRole; // use last known role while profile loads for authenticated users
 
   // Only show loading screen for first-time users without any profile data
   if (user && !profileResolved && !userProfile) {
