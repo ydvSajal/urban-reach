@@ -154,15 +154,62 @@ const ReportDetail = () => {
       // Fetch worker if assigned
       let worker = null;
       if (data.assigned_worker_id) {
+        console.log("Attempting to fetch worker with ID:", data.assigned_worker_id);
         const { data: workerData, error: workerError } = await supabase
           .from("workers")
           .select("id, full_name, email, phone, specialty")
           .eq("id", data.assigned_worker_id)
           .single();
+        
         if (workerError) {
-          console.warn("Worker fetch error (possibly RLS):", workerError?.message);
+          console.error("Worker fetch error:", workerError);
+          console.error("Error details:", {
+            message: workerError.message,
+            code: workerError.code,
+            details: workerError.details,
+            hint: workerError.hint
+          });
+          
+          // Try alternative fetch method for citizens
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const { data: profile } = await supabase
+              .from("profiles")
+              .select("role")
+              .eq("user_id", user.id)
+              .single();
+            
+            if (profile?.role === 'citizen') {
+              console.log("Attempting alternative worker fetch for citizen...");
+              // Try fetching through the reports join
+              const { data: reportWithWorker, error: joinError } = await supabase
+                .from("reports")
+                .select(`
+                  *,
+                  workers:assigned_worker_id (
+                    id,
+                    full_name,
+                    email,
+                    phone,
+                    specialty
+                  )
+                `)
+                .eq("id", data.id)
+                .eq("citizen_id", user.id)
+                .single();
+              
+              if (joinError) {
+                console.error("Alternative worker fetch failed:", joinError);
+              } else {
+                worker = reportWithWorker?.workers || null;
+                console.log("Alternative worker fetch result:", worker);
+              }
+            }
+          }
+        } else {
+          worker = workerData;
+          console.log("Worker fetch successful:", worker);
         }
-        worker = workerData || null;
       }
 
       const reportWithRelations = {
