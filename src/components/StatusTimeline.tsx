@@ -289,10 +289,13 @@ const StatusTimeline: React.FC<StatusTimelineProps> = ({
 
                 {/* Notes */}
                 {entry.notes && (
-                  <div className="mt-2 p-2 bg-muted rounded text-sm">
+                  <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                     <div className="flex items-start gap-2">
-                      <MessageSquare className="h-3 w-3 mt-0.5 text-muted-foreground" />
-                      <span className="italic">{entry.notes}</span>
+                      <MessageSquare className="h-4 w-4 mt-0.5 text-amber-600" />
+                      <div>
+                        <h5 className="text-sm font-medium text-amber-800 mb-1">Staff Note:</h5>
+                        <p className="text-sm text-amber-900">{entry.notes}</p>
+                      </div>
                     </div>
                   </div>
                 )}

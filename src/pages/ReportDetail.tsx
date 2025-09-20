@@ -40,6 +40,8 @@ interface Report {
   workers: {
     id: string;
     full_name: string | null;
+    phone: string | null;
+    email: string | null;
   } | null;
 }
 
@@ -152,7 +154,7 @@ const ReportDetail = () => {
       if (data.assigned_worker_id) {
         const { data: workerData } = await supabase
           .from("workers")
-          .select("id, full_name")
+          .select("id, full_name, phone, email")
           .eq("id", data.assigned_worker_id)
           .single();
         worker = workerData;
@@ -532,6 +534,61 @@ const ReportDetail = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* Assigned Worker Information - Visible to Citizens */}
+          {report.workers && (
+            <Card className="bg-blue-50 border-blue-200">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-blue-800">
+                  <User className="h-5 w-5" />
+                  Assigned Worker
+                </CardTitle>
+                <CardDescription className="text-blue-600">
+                  Contact information for your assigned municipal worker
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <h4 className="font-medium text-sm text-blue-800">Worker Name</h4>
+                      <p className="text-sm font-semibold text-blue-900">{report.workers.full_name}</p>
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-sm text-blue-800 flex items-center gap-1">
+                        <Mail className="h-3 w-3" />
+                        Email Contact
+                      </h4>
+                      <p className="text-sm text-blue-900">{report.workers.email || 'Not provided'}</p>
+                    </div>
+                  </div>
+                  {report.workers.phone && (
+                    <div>
+                      <h4 className="font-medium text-sm text-blue-800 flex items-center gap-1">
+                        <Phone className="h-3 w-3" />
+                        Phone Contact
+                      </h4>
+                      <p className="text-sm font-semibold text-blue-900">{report.workers.phone}</p>
+                    </div>
+                  )}
+                  <div className="bg-blue-100 border border-blue-300 rounded p-3">
+                    <p className="text-xs text-blue-700">
+                      💡 You can contact your assigned worker for updates on your report progress or any questions about the work being done.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Status Timeline - Visible to all users */}
+          <StatusTimeline
+            reportId={report.id}
+            reportCreatedAt={report.created_at}
+            reportResolvedAt={report.resolved_at}
+            showAllByDefault={userRole === 'citizen'}
+            maxVisibleEntries={userRole === 'citizen' ? 10 : 5}
+          />
         </div>
 
         {/* Actions Sidebar */}
@@ -593,15 +650,6 @@ const ReportDetail = () => {
             </CardContent>
           </Card>
           )}
-
-          {/* Status Timeline */}
-          <StatusTimeline
-            reportId={report.id}
-            reportCreatedAt={report.created_at}
-            reportResolvedAt={report.resolved_at}
-            showAllByDefault={false}
-            maxVisibleEntries={5}
-          />
 
           {/* Report Info */}
           <Card>

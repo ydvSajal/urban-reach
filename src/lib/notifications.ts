@@ -70,29 +70,40 @@ export const updateNotificationPreferences = async (
 export const updateStatusWithNotification = async (
   reportId: string,
   newStatus: 'pending' | 'acknowledged' | 'in_progress' | 'resolved' | 'closed',
-  userId: string,
-  notes?: string
+  notes: string = '',
+  userRole: string
 ): Promise<boolean> => {
   try {
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) throw new Error('User not authenticated');
+
+    // Get current report status to track old status
+    const { data: currentReport } = await supabase
+      .from('reports')
+      .select('status')
+      .eq('id', reportId)
+      .single();
+
     const { error } = await supabase
       .from('reports')
       .update({ 
         status: newStatus,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
+        resolved_at: (newStatus === 'resolved' || newStatus === 'closed') ? new Date().toISOString() : null
       })
       .eq('id', reportId);
 
     if (error) throw error;
 
-    // Add to status history
+    // Add to status history with notes
     const { error: historyError } = await supabase
       .from('report_status_history')
       .insert({
         report_id: reportId,
-        old_status: null,
+        old_status: currentReport?.status || null,
         new_status: newStatus,
-        changed_by: userId,
-        notes: notes || ''
+        changed_by: userData.user.id,
+        notes: notes || `Status updated by ${userRole}`
       });
 
     return !historyError;
