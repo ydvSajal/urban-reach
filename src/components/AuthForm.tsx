@@ -149,7 +149,10 @@ const AuthForm = ({ onSuccess, userType }: AuthFormProps) => {
     setError("");
 
     try {
-      const { data } = await verifyOTP(email, otpToken);
+      const result = await verifyOTP(email, otpToken);
+      if (!result) {
+        throw new Error("OTP verification failed");
+      }
       
       // Wait a moment for the session to be established
       await new Promise(resolve => setTimeout(resolve, 1000));
