@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { logError } from '@/lib/error-handling';
@@ -6,6 +6,88 @@ import { toast } from '@/hooks/use-toast';
 
 export type DatabaseEvent = 'INSERT' | 'UPDATE' | 'DELETE';
 export type TableName = 'reports' | 'report_status_history' | 'workers' | 'notifications';
+
+// Global subscription manager to prevent duplicates
+class SubscriptionManager {
+  private static instance: SubscriptionManager;
+  private subscriptions = new Map<string, RealtimeChannel>();
+  private subscribers = new Map<string, Set<string>>();
+  private callbacks = new Map<string, Map<string, (payload: any) => void>>();
+
+  static getInstance() {
+    if (!SubscriptionManager.instance) {
+      SubscriptionManager.instance = new SubscriptionManager();
+    }
+    return SubscriptionManager.instance;
+  }
+
+  subscribe(key: string, subscriberId: string, channel: RealtimeChannel, callback?: (payload: any) => void) {
+    // If subscription exists, add subscriber
+    if (this.subscriptions.has(key)) {
+      if (!this.subscribers.has(key)) {
+        this.subscribers.set(key, new Set());
+      }
+      this.subscribers.get(key)!.add(subscriberId);
+      
+      // Add callback if provided
+      if (callback) {
+        if (!this.callbacks.has(key)) {
+          this.callbacks.set(key, new Map());
+        }
+        this.callbacks.get(key)!.set(subscriberId, callback);
+      }
+      
+      return this.subscriptions.get(key)!;
+    }
+
+    // Create new subscription
+    this.subscriptions.set(key, channel);
+    this.subscribers.set(key, new Set([subscriberId]));
+    
+    if (callback) {
+      this.callbacks.set(key, new Map([[subscriberId, callback]]));
+    }
+    
+    return channel;
+  }
+
+  unsubscribe(key: string, subscriberId: string) {
+    const subscribers = this.subscribers.get(key);
+    if (subscribers) {
+      subscribers.delete(subscriberId);
+      
+      // Remove callback
+      const callbacks = this.callbacks.get(key);
+      if (callbacks) {
+        callbacks.delete(subscriberId);
+      }
+      
+      // If no more subscribers, remove the subscription
+      if (subscribers.size === 0) {
+        const channel = this.subscriptions.get(key);
+        if (channel) {
+          supabase.removeChannel(channel);
+          this.subscriptions.delete(key);
+          this.subscribers.delete(key);
+          this.callbacks.delete(key);
+        }
+      }
+    }
+  }
+
+  getCallbacks(key: string): Map<string, (payload: any) => void> | undefined {
+    return this.callbacks.get(key);
+  }
+
+  cleanup() {
+    this.subscriptions.forEach((channel) => {
+      supabase.removeChannel(channel);
+    });
+    this.subscriptions.clear();
+    this.subscribers.clear();
+    this.callbacks.clear();
+  }
+}
 
 export interface RealtimeSubscriptionOptions {
   table: TableName;
@@ -18,13 +100,12 @@ export interface RealtimeSubscriptionOptions {
   enabled?: boolean;
 }
 
+// Enhanced useRealtimeSubscription with subscription manager
 export const useRealtimeSubscription = (options: RealtimeSubscriptionOptions) => {
   const [isConnected, setIsConnected] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error'>('disconnected');
-  const channelRef = useRef<RealtimeChannel | null>(null);
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const reconnectAttempts = useRef(0);
-  const maxReconnectAttempts = 5;
+  const subscriberIdRef = useRef(`${Date.now()}-${Math.random()}`);
+  const manager = SubscriptionManager.getInstance();
 
   const {
     table,
@@ -37,74 +118,86 @@ export const useRealtimeSubscription = (options: RealtimeSubscriptionOptions) =>
     enabled = true,
   } = options;
 
-  const cleanup = () => {
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
-      channelRef.current = null;
-    }
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
-  };
+  const createCallback = useCallback((
+    onInsert?: (payload: RealtimePostgresChangesPayload<any>) => void,
+    onUpdate?: (payload: RealtimePostgresChangesPayload<any>) => void,
+    onDelete?: (payload: RealtimePostgresChangesPayload<any>) => void,
+    onError?: (error: any) => void
+  ) => {
+    return (payload: RealtimePostgresChangesPayload<any>) => {
+      try {
+        switch (payload.eventType) {
+          case 'INSERT':
+            onInsert?.(payload);
+            break;
+          case 'UPDATE':
+            onUpdate?.(payload);
+            break;
+          case 'DELETE':
+            onDelete?.(payload);
+            break;
+        }
+      } catch (error) {
+        console.error('Error handling realtime payload:', error);
+        onError?.(error);
+      }
+    };
+  }, []);
 
-  const connect = async () => {
-    if (!enabled) return;
+  useEffect(() => {
+    if (!enabled) {
+      // Cleanup if disabled
+      const subscriptionKey = `${table}${filter ? `-${filter}` : ''}${event !== '*' ? `-${event}` : ''}`;
+      manager.unsubscribe(subscriptionKey, subscriberIdRef.current);
+      setIsConnected(false);
+      setConnectionStatus('disconnected');
+      return;
+    }
 
-    try {
+    const subscriptionKey = `${table}${filter ? `-${filter}` : ''}${event !== '*' ? `-${event}` : ''}`;
+    const subscriberId = subscriberIdRef.current;
+
+    const callback = createCallback(onInsert, onUpdate, onDelete, onError);
+
+    // Check if subscription already exists
+    let channel = manager.subscriptions.get(subscriptionKey);
+
+    if (!channel) {
       setConnectionStatus('connecting');
-      cleanup();
-
-      // Create channel name
-      const channelName = `${table}_changes_${Date.now()}`;
       
-      // Create new channel
-      const channel = supabase.channel(channelName);
+      // Create new subscription
+      const channelName = `realtime-${subscriptionKey}-${Date.now()}`;
+      channel = supabase.channel(channelName);
 
-      // Configure postgres changes subscription
-      let subscription = channel.on(
-        'postgres_changes',
-        {
-          event: event as any,
-          schema: 'public',
+      channel.on('postgres_changes', 
+        { 
+          event: event as any, 
+          schema: 'public', 
           table,
-          filter,
-        },
+          ...(filter && { filter })
+        }, 
         (payload: RealtimePostgresChangesPayload<any>) => {
-          try {
-            switch (payload.eventType) {
-              case 'INSERT':
-                onInsert?.(payload);
-                break;
-              case 'UPDATE':
-                onUpdate?.(payload);
-                break;
-              case 'DELETE':
-                onDelete?.(payload);
-                break;
-            }
-          } catch (error) {
-            console.error('Error handling realtime payload:', error);
-            onError?.(error);
+          // Execute all callbacks for this subscription
+          const callbacks = manager.getCallbacks(subscriptionKey);
+          if (callbacks) {
+            callbacks.forEach(cb => cb(payload));
           }
         }
       );
 
       // Subscribe to channel
-      const subscriptionResult = await channel.subscribe((status) => {
+      channel.subscribe((status) => {
         console.log(`Realtime subscription status for ${table}:`, status);
         
         switch (status) {
           case 'SUBSCRIBED':
             setIsConnected(true);
             setConnectionStatus('connected');
-            reconnectAttempts.current = 0;
             break;
           case 'CHANNEL_ERROR':
           case 'TIMED_OUT':
             setIsConnected(false);
             setConnectionStatus('error');
-            handleReconnect();
             break;
           case 'CLOSED':
             setIsConnected(false);
@@ -112,68 +205,50 @@ export const useRealtimeSubscription = (options: RealtimeSubscriptionOptions) =>
             break;
         }
       });
-
-      channelRef.current = channel;
-
-    } catch (error) {
-      console.error('Error setting up realtime subscription:', error);
-      logError(error, 'useRealtimeSubscription:connect', { table, event, filter });
-      setConnectionStatus('error');
-      onError?.(error);
-      handleReconnect();
-    }
-  };
-
-  const handleReconnect = () => {
-    if (reconnectAttempts.current >= maxReconnectAttempts) {
-      console.warn(`Max reconnection attempts reached for ${table} subscription`);
-      setConnectionStatus('error');
-      return;
+    } else {
+      // Use existing subscription
+      setIsConnected(true);
+      setConnectionStatus('connected');
     }
 
-    const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000); // Exponential backoff, max 30s
-    reconnectAttempts.current++;
+    manager.subscribe(subscriptionKey, subscriberId, channel, callback);
 
-    console.log(`Attempting to reconnect ${table} subscription in ${delay}ms (attempt ${reconnectAttempts.current})`);
+    // Cleanup function
+    return () => {
+      manager.unsubscribe(subscriptionKey, subscriberId);
+    };
+  }, [table, filter, event, enabled, createCallback, onInsert, onUpdate, onDelete, onError]);
 
-    reconnectTimeoutRef.current = setTimeout(() => {
-      connect();
-    }, delay);
-  };
+  // Global cleanup on unmount
+  useEffect(() => {
+    return () => {
+      const subscriberId = subscriberIdRef.current;
+      // Clean up all subscriptions for this component
+      manager.subscriptions.forEach((_, key) => {
+        manager.unsubscribe(key, subscriberId);
+      });
+    };
+  }, []);
 
-  const disconnect = () => {
-    cleanup();
+  const reconnect = useCallback(() => {
+    // Force reconnection by temporarily disabling and re-enabling
+    const subscriptionKey = `${table}${filter ? `-${filter}` : ''}${event !== '*' ? `-${event}` : ''}`;
+    manager.unsubscribe(subscriptionKey, subscriberIdRef.current);
+    
+    setTimeout(() => {
+      if (enabled) {
+        // Re-trigger the effect
+        subscriberIdRef.current = `${Date.now()}-${Math.random()}`;
+      }
+    }, 100);
+  }, [table, filter, event, enabled]);
+
+  const disconnect = useCallback(() => {
+    const subscriptionKey = `${table}${filter ? `-${filter}` : ''}${event !== '*' ? `-${event}` : ''}`;
+    manager.unsubscribe(subscriptionKey, subscriberIdRef.current);
     setIsConnected(false);
     setConnectionStatus('disconnected');
-  };
-
-  const reconnect = () => {
-    reconnectAttempts.current = 0;
-    connect();
-  };
-
-  useEffect(() => {
-    if (enabled) {
-      connect();
-    } else {
-      disconnect();
-    }
-
-    return cleanup;
-  }, [enabled, table, event, filter]);
-
-  // Handle visibility change to reconnect when tab becomes active
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && enabled && !isConnected) {
-        console.log('Tab became visible, attempting to reconnect realtime subscription');
-        reconnect();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [enabled, isConnected]);
+  }, [table, filter, event]);
 
   return {
     isConnected,
@@ -324,4 +399,9 @@ export const useRealtimeConnectionStatus = () => {
     activeConnections,
     isOnline: globalStatus === 'connected',
   };
+};
+
+// Export cleanup function for app-level cleanup
+export const cleanupRealtimeSubscriptions = () => {
+  SubscriptionManager.getInstance().cleanup();
 };

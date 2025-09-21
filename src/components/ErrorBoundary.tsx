@@ -4,6 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertTriangle, RefreshCw, Home, Mail } from 'lucide-react';
 import { logError, classifyError, getRecoveryActions } from '@/lib/error-handling';
+import { cleanupRealtimeSubscriptions } from '@/hooks/useRealtimeSubscription';
+import { sessionManager } from '@/lib/session-manager';
 
 interface Props {
   children: ReactNode;
@@ -39,12 +41,26 @@ class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Log the error
-    logError(error, 'ErrorBoundary', {
-      errorInfo,
-      retryCount: this.state.retryCount,
+    const errorDetails = {
+      message: error.message,
+      stack: error.stack,
       componentStack: errorInfo.componentStack,
-    });
+      sessionId: sessionManager.getSessionId(),
+      timestamp: new Date().toISOString(),
+      userAgent: navigator.userAgent,
+      url: window.location.href,
+      retryCount: this.state.retryCount,
+    };
+
+    // Cleanup resources on crash
+    try {
+      cleanupRealtimeSubscriptions();
+    } catch (cleanupError) {
+      console.error('Failed to cleanup subscriptions:', cleanupError);
+    }
+
+    // Log the error with enhanced details
+    logError(error, 'ErrorBoundary', errorDetails);
 
     this.setState({
       error,
@@ -54,6 +70,12 @@ class ErrorBoundary extends Component<Props, State> {
     // Call custom error handler if provided
     if (this.props.onError) {
       this.props.onError(error, errorInfo);
+    }
+
+    // Log to external service if available (production only)
+    if (process.env.NODE_ENV === 'production') {
+      // Add your error logging service here
+      console.error('Production Error:', errorDetails);
     }
   }
 
@@ -69,6 +91,13 @@ class ErrorBoundary extends Component<Props, State> {
   };
 
   handleRefresh = () => {
+    // Cleanup before refresh
+    try {
+      cleanupRealtimeSubscriptions();
+      sessionManager.cleanup();
+    } catch (error) {
+      console.error('Cleanup failed:', error);
+    }
     window.location.reload();
   };
 
@@ -81,9 +110,11 @@ class ErrorBoundary extends Component<Props, State> {
     const body = encodeURIComponent(`
 Error Details:
 - Message: ${this.state.error?.message}
+- Session ID: ${sessionManager.getSessionId()}
 - Time: ${new Date().toISOString()}
 - Page: ${window.location.href}
 - User Agent: ${navigator.userAgent}
+- Retry Count: ${this.state.retryCount}
 
 Please describe what you were doing when this error occurred:
 [Your description here]
@@ -173,6 +204,7 @@ Please describe what you were doing when this error occurred:
               <div className="text-sm text-muted-foreground text-center space-y-1">
                 <p>If this problem persists, please contact our support team.</p>
                 <p>Error ID: {Date.now().toString(36)}</p>
+                <p>Session ID: {sessionManager.getSessionId()}</p>
               </div>
             </CardContent>
           </Card>

@@ -60,15 +60,21 @@ const Dashboard = () => {
     getCouncilId();
   }, []);
 
-  // Subscribe to new reports
-  useNewReportsSubscription(
-    councilId || undefined,
-    (newReport) => {
-      // Refresh dashboard data when new report comes in
-      loadDashboardData();
+  // Subscribe to new reports with the enhanced system
+  useRealtimeSubscription({
+    table: 'reports',
+    event: 'INSERT',
+    filter: councilId ? `council_id=eq.${councilId}` : undefined,
+    onInsert: (payload) => {
+      console.log('New report received:', payload);
+      loadDashboardData(); // Refresh data
+      toast({
+        title: "New Report",
+        description: `Report #${payload.new.report_number} has been submitted`,
+      });
     },
-    !!councilId
-  );
+    enabled: !!councilId,
+  });
 
   // Subscribe to report status changes for real-time stats updates
   useRealtimeSubscription({
@@ -76,8 +82,13 @@ const Dashboard = () => {
     event: 'UPDATE',
     filter: councilId ? `council_id=eq.${councilId}` : undefined,
     onUpdate: (payload) => {
+      console.log('Report updated:', payload);
       // Refresh dashboard data when any report is updated
       loadDashboardData();
+      toast({
+        title: "Report Updated",
+        description: `Report #${payload.new.report_number} status changed to ${payload.new.status}`,
+      });
     },
     enabled: !!councilId,
   });

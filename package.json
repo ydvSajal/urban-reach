@@ -1,8 +1,25 @@
 {
-  "name": "vite_react_shadcn_ts",
+  "name": "urban-reach",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
+  "description": "Modern municipal complaint management system built with React, TypeScript, and Supabase",
+  "keywords": [
+    "municipal",
+    "management",
+    "react",
+    "typescript",
+    "supabase",
+    "urban",
+    "government"
+  ],
+  "author": "Urban Reach Development Team",
+  "license": "MIT",
+  "homepage": "https://urban-reach-1.vercel.app/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ydvSajal/urban-reach.git"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -84,7 +101,6 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^15.15.0",
-    "lovable-tagger": "^1.1.9",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.17",
     "terser": "^5.44.0",
