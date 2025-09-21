@@ -13,6 +13,9 @@ import WorkerLayout from "./components/WorkerLayout";
 import { NotificationProvider } from "./components/NotificationProvider";
 import MobilePerformanceMonitor from "./components/MobilePerformanceMonitor";
 import PageLoading from "./components/PageLoading";
+import { sessionManager } from "@/lib/session-manager";
+import { cleanupRealtimeSubscriptions } from "@/hooks/useRealtimeSubscription";
+import { initializeCleanupSystem } from "@/lib/cleanup-utils";
 
 // Lazy load page components for code splitting
 const Auth = lazy(() => import("./pages/Auth"));
@@ -43,7 +46,7 @@ interface UserProfile {
   full_name: string | null;
 }
 
-const LAST_ROLE_KEY = "ur_last_known_role";
+const LAST_ROLE_KEY = "last_known_role"; // Use session manager for this
 
 const App = () => {
   const [user, setUser] = useState<User | null>(null);
@@ -51,6 +54,38 @@ const App = () => {
   const [userProfile, setUserProfile] = useState<UserProfile | null | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [profileResolved, setProfileResolved] = useState(false);
+
+  // Use session-specific storage helpers
+  const getLastKnownRole = (): UserRole => {
+    try {
+      return (sessionManager.getGlobalItem(LAST_ROLE_KEY) as UserRole) || 'citizen';
+    } catch {
+      return 'citizen';
+    }
+  };
+
+  const setLastKnownRole = (role: UserRole) => {
+    try {
+      sessionManager.setGlobalItem(LAST_ROLE_KEY, role);
+    } catch {
+      console.warn('Failed to save last known role');
+    }
+  };
+
+  // Add cleanup on app unmount
+  useEffect(() => {
+    // Initialize cleanup system
+    const masterCleanup = initializeCleanupSystem();
+
+    return () => {
+      // Cleanup subscriptions
+      cleanupRealtimeSubscriptions();
+      // Cleanup session storage
+      sessionManager.cleanup();
+      // Run master cleanup
+      masterCleanup();
+    };
+  }, []);
 
   const fetchUserProfile = async (userId: string): Promise<UserProfile | null | undefined> => {
     try {
@@ -96,16 +131,14 @@ const App = () => {
 
           if (profile === undefined) {
             // Use last known role to avoid blocking user
-            const lastRole = ((): UserRole => {
-              try { return (localStorage.getItem(LAST_ROLE_KEY) as UserRole) || 'citizen'; } catch { return 'citizen'; }
-            })();
+            const lastRole = getLastKnownRole();
             setUserProfile({ role: lastRole, council_id: null, full_name: null });
             setProfileResolved(true);
           } else {
             setUserProfile(profile);
             setProfileResolved(true);
             if (profile && profile.role) {
-              try { localStorage.setItem(LAST_ROLE_KEY, profile.role); } catch {}
+              setLastKnownRole(profile.role);
             }
           }
         } else {
@@ -156,9 +189,7 @@ const App = () => {
   }
 
   // Determine role preference using profile first, then last-known role (only when no session)
-  const lastKnownRole = ((): UserRole => {
-    try { return (localStorage.getItem(LAST_ROLE_KEY) as UserRole) || 'citizen'; } catch { return 'citizen'; }
-  })();
+  const lastKnownRole = getLastKnownRole();
   
   // CRITICAL FIX: Only use lastKnownRole when there's no user session
   // When user is authenticated, always wait for profile to load properly
@@ -166,6 +197,13 @@ const App = () => {
     user && userProfile ? userProfile.role : 
     !user ? lastKnownRole : 
     lastKnownRole; // use last known role while profile loads for authenticated users
+
+  // Auth success handler
+  const handleAuthSuccess = () => {
+    try {
+      sessionManager.removeItem(LAST_ROLE_KEY);
+    } catch {}
+  };
 
   // Only show loading screen for first-time users without any profile data
   if (user && !profileResolved && !userProfile) {
@@ -221,27 +259,19 @@ const App = () => {
                   {/* Auth Routes - Clear localStorage on successful auth */}
                   <Route 
                     path="/auth/admin" 
-                    element={!user ? <Auth userType="admin" onSuccess={() => {
-                      try { localStorage.removeItem(LAST_ROLE_KEY); } catch {}
-                    }} /> : <Navigate to="/dashboard" replace />} 
+                    element={!user ? <Auth userType="admin" onSuccess={handleAuthSuccess} /> : <Navigate to="/dashboard" replace />} 
                   />
                   <Route 
                     path="/auth/worker" 
-                    element={!user ? <Auth userType="worker" onSuccess={() => {
-                      try { localStorage.removeItem(LAST_ROLE_KEY); } catch {}
-                    }} /> : <Navigate to="/worker-dashboard" replace />} 
+                    element={!user ? <Auth userType="worker" onSuccess={handleAuthSuccess} /> : <Navigate to="/worker-dashboard" replace />} 
                   />
                   <Route 
                     path="/auth/citizen" 
-                    element={!user ? <Auth userType="citizen" onSuccess={() => {
-                      try { localStorage.removeItem(LAST_ROLE_KEY); } catch {}
-                    }} /> : <Navigate to="/citizen-dashboard" replace />} 
+                    element={!user ? <Auth userType="citizen" onSuccess={handleAuthSuccess} /> : <Navigate to="/citizen-dashboard" replace />} 
                   />
                   <Route 
                     path="/auth" 
-                    element={!user ? <Auth userType="citizen" onSuccess={() => {
-                      try { localStorage.removeItem(LAST_ROLE_KEY); } catch {}
-                    }} /> : <Navigate to={getDefaultRoute(effectiveRole)} replace />} 
+                    element={!user ? <Auth userType="citizen" onSuccess={handleAuthSuccess} /> : <Navigate to={getDefaultRoute(effectiveRole)} replace />} 
                   />
 
                   {/* Protected Routes */}

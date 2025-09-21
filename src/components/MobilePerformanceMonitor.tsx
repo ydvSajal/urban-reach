@@ -10,10 +10,12 @@ import {
   Smartphone, 
   AlertTriangle,
   CheckCircle,
-  Clock
+  Clock,
+  Users
 } from 'lucide-react';
 import { useMobileOptimization } from '@/hooks/useMobileOptimization';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { sessionManager } from '@/lib/session-manager';
 
 interface PerformanceMetrics {
   loadTime: number;
@@ -21,6 +23,9 @@ interface PerformanceMetrics {
   batteryLevel?: number;
   connectionSpeed: string;
   isCharging?: boolean;
+  sessionId: string;
+  activeConnections: number;
+  multiSessionWarning: boolean;
 }
 
 const MobilePerformanceMonitor: React.FC = () => {
@@ -30,6 +35,9 @@ const MobilePerformanceMonitor: React.FC = () => {
     loadTime: 0,
     memoryUsage: 0,
     connectionSpeed: 'unknown',
+    sessionId: sessionManager.getSessionId(),
+    activeConnections: 0,
+    multiSessionWarning: false,
   });
   const [showMonitor, setShowMonitor] = useState(false);
 
@@ -68,13 +76,43 @@ const MobilePerformanceMonitor: React.FC = () => {
       // Connection speed
       const connectionSpeed = mobileOptimization.networkInfo.effectiveType || 'unknown';
 
+      // Session tracking
+      const sessionId = sessionManager.getSessionId();
+      
+      // Monitor for multiple connections/sessions
+      const activeConnections = performance.getEntriesByType('navigation').length;
+      const resourceEntries = performance.getEntriesByType('resource');
+      const realtimeConnections = resourceEntries.filter(entry => 
+        entry.name.includes('realtime') || entry.name.includes('websocket')
+      ).length;
+      
+      // Check for multiple sessions by looking at localStorage
+      let sessionCount = 0;
+      try {
+        const keys = Object.keys(localStorage);
+        const sessionKeys = keys.filter(key => key.startsWith('ur_session-'));
+        sessionCount = sessionKeys.length;
+      } catch (error) {
+        console.debug('Could not access localStorage for session count');
+      }
+
+      const multiSessionWarning = sessionCount > 2 || realtimeConnections > 3;
+
       setMetrics({
         loadTime,
         memoryUsage,
         batteryLevel,
         isCharging,
         connectionSpeed,
+        sessionId,
+        activeConnections: sessionCount,
+        multiSessionWarning,
       });
+
+      // Monitor for resource competition
+      if (multiSessionWarning) {
+        console.warn('Multiple active sessions detected. Performance may be affected.');
+      }
     };
 
     collectMetrics();
@@ -90,9 +128,9 @@ const MobilePerformanceMonitor: React.FC = () => {
   }
 
   const getPerformanceStatus = () => {
-    if (mobileOptimization.isSlowConnection && metrics.memoryUsage > 80) {
+    if ((mobileOptimization.isSlowConnection && metrics.memoryUsage > 80) || metrics.multiSessionWarning) {
       return { status: 'poor', color: 'destructive' as const, icon: AlertTriangle };
-    } else if (mobileOptimization.isSlowConnection || metrics.memoryUsage > 60) {
+    } else if (mobileOptimization.isSlowConnection || metrics.memoryUsage > 60 || metrics.activeConnections > 2) {
       return { status: 'fair', color: 'secondary' as const, icon: Clock };
     } else {
       return { status: 'good', color: 'default' as const, icon: CheckCircle };
@@ -123,6 +161,17 @@ const MobilePerformanceMonitor: React.FC = () => {
             </div>
             <Badge variant="outline" className="text-xs">
               {metrics.connectionSpeed.toUpperCase()}
+            </Badge>
+          </div>
+
+          {/* Session Info */}
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-2">
+              <Users className="h-3 w-3" />
+              <span>Sessions</span>
+            </div>
+            <Badge variant={metrics.multiSessionWarning ? "destructive" : "outline"} className="text-xs">
+              {metrics.activeConnections}
             </Badge>
           </div>
 
@@ -175,12 +224,13 @@ const MobilePerformanceMonitor: React.FC = () => {
           </div>
 
           {/* Performance Warnings */}
-          {(mobileOptimization.isSlowConnection || metrics.memoryUsage > 80) && (
+          {(mobileOptimization.isSlowConnection || metrics.memoryUsage > 80 || metrics.multiSessionWarning) && (
             <Alert variant="destructive" className="p-2">
               <AlertTriangle className="h-3 w-3" />
               <AlertDescription className="text-xs">
                 {mobileOptimization.isSlowConnection && "Slow connection detected. "}
                 {metrics.memoryUsage > 80 && "High memory usage. "}
+                {metrics.multiSessionWarning && "Multiple sessions detected. "}
                 Optimizations active.
               </AlertDescription>
             </Alert>
@@ -189,6 +239,7 @@ const MobilePerformanceMonitor: React.FC = () => {
           {/* Device Info */}
           {process.env.NODE_ENV === 'development' && (
             <div className="text-xs text-muted-foreground space-y-1">
+              <div>Session: {metrics.sessionId.slice(-8)}</div>
               <div>Orientation: {mobileOptimization.orientation}</div>
               {mobileOptimization.deviceMemory && (
                 <div>RAM: {mobileOptimization.deviceMemory}GB</div>
