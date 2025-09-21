@@ -1,19 +1,8 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-que  // Handle role switching for existing sessions
-  const handleRoleSwitch = (newRole: UserRole) => {
-    setTabSpecificRole(newRole as UserRole);
-    sessionManager.setTabRole(newRole);
-    // Remove role from URL and redirect to appropriate dashboard
-    const newUrl = window.location.href.split('?')[0];
-    window.history.replaceState({}, '', newUrl);
-    window.location.hash = getDefaultRoute(newRole);
-  };
-
-  // Check if we need to show role switcher
-  const requestedRole = getRequestedRoleFromURL();
-  const showRoleSwitcher = user && userProfile && requestedRole && requestedRole !== effectiveRole;ort { HashRouter, Routes, Route, Navigate } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useState, useEffect, Suspense, lazy } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { User, Session } from "@supabase/supabase-js";
@@ -24,7 +13,6 @@ import WorkerLayout from "./components/WorkerLayout";
 import { NotificationProvider } from "./components/NotificationProvider";
 import MobilePerformanceMonitor from "./components/MobilePerformanceMonitor";
 import PageLoading from "./components/PageLoading";
-import RoleSwitcher from "./components/RoleSwitcher";
 import { sessionManager } from "@/lib/session-manager";
 import { cleanupRealtimeSubscriptions } from "@/hooks/useRealtimeSubscription";
 import { initializeCleanupSystem } from "@/lib/cleanup-utils";
@@ -46,7 +34,6 @@ const SubmitReport = lazy(() => import("./pages/SubmitReport"));
 const MyReports = lazy(() => import("./pages/MyReports"));
 const NotificationSettings = lazy(() => import("./pages/NotificationSettings"));
 const Index = lazy(() => import("./pages/Index"));
-const MultiRoleGuide = lazy(() => import("./pages/MultiRoleGuide"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -67,7 +54,6 @@ const App = () => {
   const [userProfile, setUserProfile] = useState<UserProfile | null | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [profileResolved, setProfileResolved] = useState(false);
-  const [tabSpecificRole, setTabSpecificRole] = useState<UserRole | null>(null);
 
   // Use session-specific storage helpers
   const getLastKnownRole = (): UserRole => {
@@ -85,24 +71,6 @@ const App = () => {
       console.warn('Failed to save last known role');
     }
   };
-
-  // Initialize tab-specific role from URL or session
-  useEffect(() => {
-    const initTabRole = () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const urlRole = urlParams.get('role') as UserRole;
-      const savedTabRole = sessionManager.getTabRole() as UserRole;
-      
-      if (urlRole && ['admin', 'worker', 'citizen'].includes(urlRole)) {
-        setTabSpecificRole(urlRole);
-        sessionManager.setTabRole(urlRole);
-      } else if (savedTabRole) {
-        setTabSpecificRole(savedTabRole);
-      }
-    };
-    
-    initTabRole();
-  }, []);
 
   // Add cleanup on app unmount
   useEffect(() => {
@@ -220,46 +188,21 @@ const App = () => {
     );
   }
 
-  // Determine effective role with tab-specific override
-  const determineEffectiveRole = (): UserRole => {
-    // If tab has a specific role set, use it (but verify user has permission)
-    if (tabSpecificRole && user && userProfile) {
-      // In a real app, you'd verify the user has permission for this role
-      // For now, we'll allow the override if they're logged in
-      return tabSpecificRole;
-    }
-    
-    // Otherwise use the user's actual profile role
-    if (user && userProfile) {
-      return userProfile.role;
-    }
-    
-    // For non-authenticated users, use tab role or default
-    return tabSpecificRole || getLastKnownRole();
-  };
-
-  const effectiveRole = determineEffectiveRole();
+  // Determine role preference using profile first, then last-known role (only when no session)
+  const lastKnownRole = getLastKnownRole();
+  
+  // CRITICAL FIX: Only use lastKnownRole when there's no user session
+  // When user is authenticated, always wait for profile to load properly
+  const effectiveRole: UserRole = 
+    user && userProfile ? userProfile.role : 
+    !user ? lastKnownRole : 
+    lastKnownRole; // use last known role while profile loads for authenticated users
 
   // Auth success handler
-  const handleAuthSuccess = (userType?: string) => {
+  const handleAuthSuccess = () => {
     try {
-      // Set tab role based on auth type
-      if (userType && ['admin', 'worker', 'citizen'].includes(userType)) {
-        setTabSpecificRole(userType as UserRole);
-        sessionManager.setTabRole(userType);
-      }
       sessionManager.removeItem(LAST_ROLE_KEY);
     } catch {}
-  };
-
-  // Handle role switching for existing sessions
-  const handleRoleSwitch = (newRole: UserRole) => {
-    setTabSpecificRole(newRole);
-    sessionManager.setTabRole(newRole);
-    // Remove role from URL and redirect to appropriate dashboard
-    const newUrl = window.location.href.split('?')[0];
-    window.history.replaceState({}, '', newUrl);
-    window.location.hash = getDefaultRoute(newRole);
   };
 
   // Only show loading screen for first-time users without any profile data
@@ -296,24 +239,6 @@ const App = () => {
     );
   }
 
-  // Show role switcher if needed
-  if (showRoleSwitcher && requestedRole) {
-    return (
-      <ErrorBoundary>
-        <QueryClientProvider client={queryClient}>
-          <TooltipProvider>
-            <RoleSwitcher
-              currentRole={effectiveRole}
-              requestedRole={requestedRole}
-              userProfile={userProfile}
-              onRoleSwitch={handleRoleSwitch}
-            />
-          </TooltipProvider>
-        </QueryClientProvider>
-      </ErrorBoundary>
-    );
-  }
-
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
@@ -328,33 +253,25 @@ const App = () => {
                   {/* Public Routes */}
                   <Route 
                     path="/" 
-                    element={user ? <Navigate to={getDefaultRoute(effectiveRole)} replace /> : <MultiRoleGuide />} 
-                  />
-                  <Route 
-                    path="/guide" 
-                    element={<MultiRoleGuide />} 
-                  />
-                  <Route 
-                    path="/index" 
-                    element={<Index />} 
+                    element={user ? <Navigate to={getDefaultRoute(effectiveRole)} replace /> : <Index />} 
                   />
                   
                   {/* Auth Routes - Clear localStorage on successful auth */}
                   <Route 
                     path="/auth/admin" 
-                    element={!user ? <Auth userType="admin" onSuccess={() => handleAuthSuccess('admin')} /> : <Navigate to="/dashboard" replace />} 
+                    element={!user ? <Auth userType="admin" onSuccess={handleAuthSuccess} /> : <Navigate to="/dashboard" replace />} 
                   />
                   <Route 
                     path="/auth/worker" 
-                    element={!user ? <Auth userType="worker" onSuccess={() => handleAuthSuccess('worker')} /> : <Navigate to="/worker-dashboard" replace />} 
+                    element={!user ? <Auth userType="worker" onSuccess={handleAuthSuccess} /> : <Navigate to="/worker-dashboard" replace />} 
                   />
                   <Route 
                     path="/auth/citizen" 
-                    element={!user ? <Auth userType="citizen" onSuccess={() => handleAuthSuccess('citizen')} /> : <Navigate to="/citizen-dashboard" replace />} 
+                    element={!user ? <Auth userType="citizen" onSuccess={handleAuthSuccess} /> : <Navigate to="/citizen-dashboard" replace />} 
                   />
                   <Route 
                     path="/auth" 
-                    element={!user ? <Auth userType="citizen" onSuccess={() => handleAuthSuccess('citizen')} /> : <Navigate to={getDefaultRoute(effectiveRole)} replace />} 
+                    element={!user ? <Auth userType="citizen" onSuccess={handleAuthSuccess} /> : <Navigate to={getDefaultRoute(effectiveRole)} replace />} 
                   />
 
                   {/* Protected Routes */}
