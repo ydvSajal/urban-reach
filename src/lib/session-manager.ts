@@ -2,10 +2,34 @@ class SessionManager {
   private static instance: SessionManager;
   private sessionId: string;
   private storagePrefix: string;
+  private tabRole: string | null = null; // Tab-specific role override
 
   private constructor() {
     this.sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     this.storagePrefix = `ur_${this.sessionId}_`;
+    
+    // Check for tab-specific role in URL or session storage
+    this.initializeTabRole();
+  }
+
+  private initializeTabRole() {
+    try {
+      // Check URL parameters for role specification
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlRole = urlParams.get('role');
+      
+      // Check if this tab was opened with a specific role context
+      const tabRole = sessionStorage.getItem('ur_tab_role');
+      
+      if (urlRole && ['admin', 'worker', 'citizen'].includes(urlRole)) {
+        this.tabRole = urlRole;
+        sessionStorage.setItem('ur_tab_role', urlRole);
+      } else if (tabRole) {
+        this.tabRole = tabRole;
+      }
+    } catch (error) {
+      console.debug('Failed to initialize tab role:', error);
+    }
   }
 
   static getInstance() {
@@ -17,6 +41,36 @@ class SessionManager {
 
   getSessionId() {
     return this.sessionId;
+  }
+
+  // Tab-specific role management
+  setTabRole(role: string) {
+    this.tabRole = role;
+    try {
+      sessionStorage.setItem('ur_tab_role', role);
+    } catch (error) {
+      console.warn('Failed to set tab role:', error);
+    }
+  }
+
+  getTabRole(): string | null {
+    if (this.tabRole) return this.tabRole;
+    
+    try {
+      return sessionStorage.getItem('ur_tab_role');
+    } catch (error) {
+      console.debug('Failed to get tab role:', error);
+      return null;
+    }
+  }
+
+  clearTabRole() {
+    this.tabRole = null;
+    try {
+      sessionStorage.removeItem('ur_tab_role');
+    } catch (error) {
+      console.debug('Failed to clear tab role:', error);
+    }
   }
 
   // Session-specific localStorage
