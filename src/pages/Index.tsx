@@ -238,10 +238,10 @@ const Index = () => {
 
               {/* Other Team Members */}
               {[
-                { name: "Devansh", role: "Full Stack Developer" },
-                { name: "Raghav", role: "Backend Engineer" },
+                { name: "Devansh", role: "Full Stack Developer", image: "/devansh.jpg" },
+                { name: "Raghav", role: "Backend Engineer", image: "/raghav.jpg" },
                 { name: "Prateek", role: "Frontend Developer" },
-                { name: "Jitesh", role: "DevOps Engineer" },
+                { name: "Jitesh", role: "DevOps Engineer", image: "/jitesh.jpg" },
                 { name: "Sakshi", role: "UI/UX Designer" }
               ].map((member, index) => (
                 <div key={member.name} className="text-center group">
@@ -249,18 +249,33 @@ const Index = () => {
                     <div className="w-24 h-24 mx-auto relative">
                       {/* Animated ring */}
                       <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
-                      {/* Placeholder avatar */}
-                      <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 rounded-full border-4 border-white shadow-lg flex items-center justify-center group-hover:shadow-xl transition-shadow duration-300">
-                        <div className="w-12 h-12 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full flex items-center justify-center">
-                          <span className="text-white font-bold text-lg">
-                            {member.name.charAt(0)}
-                          </span>
+                      
+                      {member.image ? (
+                        /* Real photo */
+                        <div className="absolute inset-1 bg-white rounded-full shadow-2xl overflow-hidden">
+                          <img 
+                            src={member.image} 
+                            alt={`${member.name} - ${member.role}`} 
+                            className="w-full h-full object-cover"
+                          />
                         </div>
-                      </div>
-                      {/* Coming soon badge */}
-                      <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center shadow-md">
-                        <span className="text-white text-xs">📷</span>
-                      </div>
+                      ) : (
+                        /* Placeholder avatar */
+                        <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 rounded-full border-4 border-white shadow-lg flex items-center justify-center group-hover:shadow-xl transition-shadow duration-300">
+                          <div className="w-12 h-12 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full flex items-center justify-center">
+                            <span className="text-white font-bold text-lg">
+                              {member.name.charAt(0)}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Coming soon badge for members without photos */}
+                      {!member.image && (
+                        <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center shadow-md">
+                          <span className="text-white text-xs">📷</span>
+                        </div>
+                      )}
                     </div>
                     <h4 className="text-xl font-bold text-gray-900 mb-2">{member.name}</h4>
                     <p className="text-gray-600 font-medium">{member.role}</p>
