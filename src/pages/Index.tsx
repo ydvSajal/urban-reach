@@ -200,7 +200,7 @@ const Index = () => {
               <div className="relative inline-block">
                 <div className="relative overflow-hidden rounded-3xl shadow-2xl border-8 border-white">
                   <img 
-                    src="/src/assets/team-photo.jpg" 
+                    src="/team-photo.jpg" 
                     alt="Team GlitchFix at Smart India Hackathon 2024" 
                     className="w-full max-w-4xl h-auto object-cover"
                   />
@@ -221,7 +221,7 @@ const Index = () => {
                     <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full animate-pulse opacity-20"></div>
                     <div className="absolute inset-1 bg-white rounded-full shadow-2xl overflow-hidden">
                       <img 
-                        src="/src/assets/team-lead.png" 
+                        src="/team-lead.png" 
                         alt="Sajal - Team Lead" 
                         className="w-full h-full object-cover"
                       />
