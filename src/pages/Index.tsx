@@ -179,15 +179,126 @@ const Index = () => {
         </div>
       </div>
 
+      {/* Team Section */}
+      <div className="py-20 bg-gradient-to-br from-blue-50 via-white to-purple-50">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-16">
+            <div className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full mb-6">
+              <span className="text-sm font-semibold text-blue-800 uppercase tracking-wider">SIH 2024 Hackathon</span>
+            </div>
+            <h2 className="text-5xl sm:text-6xl font-bold mb-6 bg-gradient-to-r from-blue-600 via-blue-700 to-purple-600 bg-clip-text text-transparent">
+              Meet Team GlitchFix
+            </h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
+              Innovative minds building the future of municipal services through technology and creativity
+            </p>
+          </div>
+          
+          <div className="max-w-7xl mx-auto">
+            {/* Team Lead */}
+            <div className="text-center mb-16">
+              <div className="relative inline-block mb-8">
+                <div className="w-32 h-32 mx-auto relative">
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full animate-pulse opacity-20"></div>
+                  <div className="absolute inset-1 bg-white rounded-full shadow-2xl overflow-hidden">
+                    <img 
+                      src="/src/assets/team-lead.png" 
+                      alt="Sajal - Team Lead" 
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center shadow-lg">
+                    <span className="text-white text-xs font-bold">👑</span>
+                  </div>
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">Sajal</h3>
+                <p className="text-blue-600 font-semibold text-lg">Team Lead</p>
+                <div className="w-20 h-1 bg-gradient-to-r from-blue-500 to-purple-500 mx-auto mt-3 rounded-full"></div>
+              </div>
+            </div>
+
+            {/* Team Members Grid */}
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
+              {[
+                { name: "Devansh", role: "Full Stack Developer" },
+                { name: "Raghav", role: "Backend Engineer" },
+                { name: "Prateek", role: "Frontend Developer" },
+                { name: "Jitesh", role: "DevOps Engineer" },
+                { name: "Sakshi", role: "UI/UX Designer" }
+              ].map((member, index) => (
+                <div key={member.name} className="text-center group">
+                  <div className="relative inline-block mb-6">
+                    <div className="w-24 h-24 mx-auto relative">
+                      {/* Animated ring */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
+                      {/* Placeholder avatar */}
+                      <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 rounded-full border-4 border-white shadow-lg flex items-center justify-center group-hover:shadow-xl transition-shadow duration-300">
+                        <div className="w-12 h-12 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full flex items-center justify-center">
+                          <span className="text-white font-bold text-lg">
+                            {member.name.charAt(0)}
+                          </span>
+                        </div>
+                      </div>
+                      {/* Coming soon badge */}
+                      <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center shadow-md">
+                        <span className="text-white text-xs">📷</span>
+                      </div>
+                    </div>
+                    <h4 className="text-xl font-bold text-gray-900 mb-2">{member.name}</h4>
+                    <p className="text-gray-600 font-medium">{member.role}</p>
+                    <div className="w-12 h-0.5 bg-gradient-to-r from-blue-400 to-purple-500 mx-auto mt-2 rounded-full"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Team Stats */}
+            <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden">
+              <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-purple-600 px-8 py-6">
+                <h3 className="text-2xl font-bold text-white text-center">Project Highlights</h3>
+              </div>
+              <div className="p-8">
+                <div className="grid md:grid-cols-3 gap-8 text-center">
+                  <div className="group">
+                    <div className="w-16 h-16 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300">
+                      <Building2 className="h-8 w-8 text-blue-600" />
+                    </div>
+                    <h4 className="text-2xl font-bold text-gray-900 mb-2">Municipal Portal</h4>
+                    <p className="text-gray-600">Comprehensive civic management system</p>
+                  </div>
+                  <div className="group">
+                    <div className="w-16 h-16 bg-gradient-to-r from-green-100 to-blue-100 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300">
+                      <Users className="h-8 w-8 text-green-600" />
+                    </div>
+                    <h4 className="text-2xl font-bold text-gray-900 mb-2">Multi-Role Access</h4>
+                    <p className="text-gray-600">Citizen, Worker & Admin portals</p>
+                  </div>
+                  <div className="group">
+                    <div className="w-16 h-16 bg-gradient-to-r from-purple-100 to-pink-100 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300">
+                      <Settings className="h-8 w-8 text-purple-600" />
+                    </div>
+                    <h4 className="text-2xl font-bold text-gray-900 mb-2">Smart Features</h4>
+                    <p className="text-gray-600">Real-time tracking & notifications</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Footer */}
       <footer className="py-12 bg-gray-50 border-t border-gray-100">
         <div className="container mx-auto px-4 text-center">
           <div className="flex items-center justify-center mb-4">
             <Building2 className="h-6 w-6 text-blue-600 mr-2" />
-            <span className="text-gray-900 font-semibold">Municipal Portal</span>
+            <span className="text-gray-900 font-semibold">Municipal Portal by Team GlitchFix</span>
           </div>
           <p className="text-gray-600">
             © 2024 Municipal Portal. Streamlining city services for everyone.
+          </p>
+          <p className="text-sm text-gray-500 mt-2">
+            Developed for Smart India Hackathon 2024
           </p>
         </div>
       </footer>
