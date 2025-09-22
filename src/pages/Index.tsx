@@ -240,9 +240,9 @@ const Index = () => {
               {[
                 { name: "Devansh", role: "Full Stack Developer", image: "/devansh.jpg" },
                 { name: "Raghav", role: "Backend Engineer", image: "/raghav.jpg" },
-                { name: "Prateek", role: "Frontend Developer" },
+                { name: "Prateek", role: "Frontend Developer", image: "/prateek.png" },
                 { name: "Jitesh", role: "DevOps Engineer", image: "/jitesh.jpg" },
-                { name: "Sakshi", role: "UI/UX Designer" }
+                { name: "Sakshi", role: "UI/UX Designer", image: "/sakshi.jpg" }
               ].map((member, index) => (
                 <div key={member.name} className="text-center group">
                   <div className="relative inline-block mb-6">
