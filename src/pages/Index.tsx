@@ -246,8 +246,8 @@ const Index = () => {
               {/* Other Team Members */}
               {[
                 { name: "Devansh", role: "Full Stack Developer", image: "/devansh.jpg" },
-                { name: "Raghav", role: "Backend Engineer", image: "/raghav.jpg" },
-                { name: "Prateek", role: "Frontend Developer", image: "/prateek.png" },
+                { name: "Raghav", role: "Frontend Developer", image: "/raghav.jpg" },
+                { name: "Prateek", role: "Backend Developer", image: "/prateek.png" },
                 { name: "Jitesh", role: "DevOps Engineer", image: "/jitesh.jpg" },
                 { name: "Sakshi", role: "UI/UX Designer", image: "/sakshi.jpg" }
               ].map((member, index) => (
