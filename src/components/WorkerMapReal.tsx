@@ -5,6 +5,13 @@ import { MapPin, Navigation } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import 'leaflet/dist/leaflet.css';
 
+// India geographical bounds
+const INDIA_CENTER: [number, number] = [20.5937, 78.9629];
+const INDIA_BOUNDS: [[number, number], [number, number]] = [
+  [6.4627, 68.0000], // Southwest corner
+  [37.6173, 97.4178]  // Northeast corner
+];
+
 interface Report {
   id: string;
   title: string;
@@ -60,25 +67,57 @@ const WorkerMapReal: React.FC<WorkerMapRealProps> = ({ reports }) => {
 
   if (validReports.length === 0) {
     return (
-      <div className="h-full flex items-center justify-center text-muted-foreground bg-gradient-to-br from-blue-50 to-green-50 rounded-lg">
-        <div className="text-center">
-          <MapPin className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-          <p>No location data available for your assignments</p>
+      <div className="h-80 w-full rounded-lg overflow-hidden relative">
+        <MapContainer
+          center={INDIA_CENTER}
+          zoom={5}
+          style={{ height: '100%', width: '100%' }}
+          maxBounds={INDIA_BOUNDS}
+          maxBoundsViscosity={1.0}
+          minZoom={4}
+          maxZoom={18}
+        >
+          <TileLayer
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          />
+        </MapContainer>
+        <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+          <div className="text-center">
+            <MapPin className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
+            <p className="text-muted-foreground">No location data available for your assignments</p>
+          </div>
         </div>
       </div>
     );
   }
 
-  // Calculate center point from all valid locations
-  const centerLat = validReports.reduce((sum, report) => sum + (report.latitude || 0), 0) / validReports.length;
-  const centerLng = validReports.reduce((sum, report) => sum + (report.longitude || 0), 0) / validReports.length;
+  // Calculate center point from all valid locations, default to India center
+  let centerLat = INDIA_CENTER[0];
+  let centerLng = INDIA_CENTER[1];
+  let zoomLevel = 5; // Default to show most of India
+  
+  if (validReports.length > 0) {
+    centerLat = validReports.reduce((sum, report) => sum + (report.latitude || 0), 0) / validReports.length;
+    centerLng = validReports.reduce((sum, report) => sum + (report.longitude || 0), 0) / validReports.length;
+    
+    // Ensure center is within India bounds
+    centerLat = Math.max(INDIA_BOUNDS[0][0], Math.min(INDIA_BOUNDS[1][0], centerLat));
+    centerLng = Math.max(INDIA_BOUNDS[0][1], Math.min(INDIA_BOUNDS[1][1], centerLng));
+    
+    zoomLevel = validReports.length === 1 ? 12 : 8;
+  }
 
   return (
     <div className="h-80 w-full rounded-lg overflow-hidden">
       <MapContainer
         center={[centerLat, centerLng]}
-        zoom={validReports.length === 1 ? 15 : 12}
+        zoom={zoomLevel}
         style={{ height: '100%', width: '100%' }}
+        maxBounds={INDIA_BOUNDS}
+        maxBoundsViscosity={1.0}
+        minZoom={4}
+        maxZoom={18}
         ref={mapRef}
       >
         <TileLayer

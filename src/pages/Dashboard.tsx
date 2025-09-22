@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { useNewReportsSubscription, useRealtimeConnectionStatus, useRealtimeSubscription } from "@/hooks/useRealtimeSubscription";
 import ExportDialog from "@/components/ExportDialog";
-import TestDataInserter from "@/components/TestDataInserter";
 
 interface DashboardStats {
   totalReports: number;
@@ -364,8 +363,6 @@ const Dashboard = () => {
             )}
             </CardContent>
           </Card>
-
-            <TestDataInserter />
           </div>
         </div>
         {showExportDialog && (

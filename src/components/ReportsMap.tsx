@@ -9,6 +9,12 @@ import LeafletMap from "./LeafletMap";
 import L from "leaflet";
 import "./ReportsMap.css";
 
+// India geographical bounds
+const INDIA_BOUNDS: L.LatLngBoundsExpression = [
+  [6.4627, 68.0000], // Southwest corner
+  [37.6173, 97.4178]  // Northeast corner
+];
+
 interface Report {
   id: string;
   report_number: string;
@@ -140,65 +146,71 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
 
   const addMarkersToMap = () => {
     if (!mapInstanceRef.current || !markersLayerRef.current) {
-      console.log('Map or markers layer not ready');
       return;
     }
 
-    console.log('Adding markers for', filteredReports.length, 'reports');
-
-    // Clear existing markers
+    // Clear existing markers efficiently
     markersLayerRef.current.clearLayers();
 
-    // Add markers for each report
+    // Batch marker creation for better performance
+    const markers: L.Marker[] = [];
+    
     filteredReports.forEach((report) => {
       if (!report.latitude || !report.longitude) return;
       
       const color = getMarkerColor(report.status, report.priority);
       
-      // Create custom colored marker icon
+      // Create optimized marker icon
       const customIcon = L.divIcon({
-        html: `<div style="background-color: ${color}; width: 20px; height: 20px; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+        html: `<div style="background-color: ${color}; width: 16px; height: 16px; border-radius: 50%; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.3);"></div>`,
         className: 'custom-div-icon',
-        iconSize: [20, 20],
-        iconAnchor: [10, 10]
+        iconSize: [16, 16],
+        iconAnchor: [8, 8]
       });
 
       const marker = L.marker([report.latitude, report.longitude], { icon: customIcon });
       
-      // Create popup content
+      // Simplified popup content for better performance
       const popupContent = `
-        <div style='min-width: 280px; font-family: system-ui, -apple-system, sans-serif;'>
-          <div style='font-weight: bold; margin-bottom: 8px; color: #1f2937; font-size: 14px;'>#${report.report_number} - ${report.title}</div>
-          <div style='margin-bottom: 8px; color: #4b5563; font-size: 12px; line-height: 1.4;'>${report.description.substring(0, 100)}${report.description.length > 100 ? '...' : ''}</div>
-          <div style='margin-bottom: 8px; display: flex; gap: 4px; flex-wrap: wrap;'>
-            <span style='background: ${report.status === 'resolved' ? '#22c55e' : report.status === 'in_progress' ? '#3b82f6' : '#6b7280'}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 500; text-transform: uppercase;'>${report.status.replace('_', ' ')}</span>
-            <span style='background: ${report.priority === 'high' ? '#ef4444' : report.priority === 'medium' ? '#f59e0b' : '#3b82f6'}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 500; text-transform: uppercase;'>${report.priority}</span>
-            <span style='background: #6b7280; color: white; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 500; text-transform: uppercase;'>${report.category.replace('_', ' ')}</span>
+        <div style='min-width: 250px; font-family: system-ui, -apple-system, sans-serif;'>
+          <div style='font-weight: bold; margin-bottom: 6px; color: #1f2937; font-size: 13px;'>#${report.report_number} - ${report.title}</div>
+          <div style='margin-bottom: 6px; color: #4b5563; font-size: 11px; line-height: 1.4;'>${report.description.substring(0, 80)}${report.description.length > 80 ? '...' : ''}</div>
+          <div style='margin-bottom: 6px; display: flex; gap: 3px; flex-wrap: wrap;'>
+            <span style='background: ${report.status === 'resolved' ? '#22c55e' : report.status === 'in_progress' ? '#3b82f6' : '#6b7280'}; color: white; padding: 1px 6px; border-radius: 10px; font-size: 9px; font-weight: 500;'>${report.status.replace('_', ' ').toUpperCase()}</span>
+            <span style='background: ${report.priority === 'high' ? '#ef4444' : report.priority === 'medium' ? '#f59e0b' : '#3b82f6'}; color: white; padding: 1px 6px; border-radius: 10px; font-size: 9px; font-weight: 500;'>${report.priority.toUpperCase()}</span>
           </div>
-          <div style='font-size: 11px; color: #6b7280; margin-bottom: 4px;'><strong>Location:</strong> ${report.location_address}</div>
-          <div style='font-size: 11px; color: #6b7280; margin-bottom: 8px;'><strong>Created:</strong> ${new Date(report.created_at).toLocaleDateString()}</div>
-          <div style='margin-top: 8px;'>
-            <button onclick="window.location.hash = '#/reports/${report.id}'" style="background: #374151; color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 11px; cursor: pointer; font-weight: 500;">View Details</button>
-          </div>
+          <div style='font-size: 10px; color: #6b7280; margin-bottom: 6px;'><strong>Location:</strong> ${report.location_address.substring(0, 40)}${report.location_address.length > 40 ? '...' : ''}</div>
+          <button onclick="window.location.hash = '#/reports/${report.id}'" style="background: #374151; color: white; border: none; padding: 4px 8px; border-radius: 3px; font-size: 10px; cursor: pointer;">View Details</button>
         </div>
       `;
       
       marker.bindPopup(popupContent);
-      markersLayerRef.current!.addLayer(marker);
+      markers.push(marker);
     });
 
-    // Fit map bounds to show all markers
-    if (filteredReports.length > 0 && mapInstanceRef.current) {
-      const markers = filteredReports
-        .filter(r => r.latitude && r.longitude)
-        .map(r => L.marker([r.latitude, r.longitude]));
+    // Add all markers at once for better performance
+    if (markers.length > 0) {
+      const markerGroup = L.featureGroup(markers);
+      markersLayerRef.current.addLayer(markerGroup);
       
-      if (markers.length > 0) {
-        const group = new L.FeatureGroup(markers);
-        if (group.getBounds().isValid()) {
-          mapInstanceRef.current.fitBounds(group.getBounds().pad(0.1));
+      // Optimized bounds fitting using existing markers
+      if (mapInstanceRef.current) {
+        const bounds = markerGroup.getBounds();
+        if (bounds.isValid()) {
+          const paddedBounds = bounds.pad(0.1);
+          
+          // Quick distance check for performance
+          const boundsSize = bounds.getNorthEast().distanceTo(bounds.getSouthWest());
+          if (boundsSize < 50000) { // Less than 50km spread, show India context
+            mapInstanceRef.current.fitBounds(L.latLngBounds(INDIA_BOUNDS));
+          } else {
+            mapInstanceRef.current.fitBounds(paddedBounds, { maxZoom: 12, animate: false });
+          }
         }
       }
+    } else if (mapInstanceRef.current && filteredReports.length === 0) {
+      // No reports, show full India
+      mapInstanceRef.current.fitBounds(L.latLngBounds(INDIA_BOUNDS), { animate: false });
     }
   };
 
@@ -314,6 +326,8 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
         <LeafletMap
           className="w-full h-full"
           style={{ height: '100%', minHeight: '400px' }}
+          center={[20.5937, 78.9629]} // Center of India
+          zoom={5} // Show most of India
           onMapReady={handleMapReady}
         />
         {reports.length === 0 && !loading && (

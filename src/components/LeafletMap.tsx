@@ -23,11 +23,17 @@ interface LeafletMapProps {
   children?: React.ReactNode;
 }
 
+// India geographical bounds - restricts map to India only
+const INDIA_BOUNDS: L.LatLngBoundsExpression = [
+  [6.4627, 68.0000], // Southwest corner (near Kanyakumari)
+  [37.6173, 97.4178]  // Northeast corner (Kashmir/Arunachal Pradesh)
+];
+
 const LeafletMap = ({ 
   className = "", 
   style = {}, 
-  center = [28.4645, 77.5173], 
-  zoom = 12,
+  center = [20.5937, 78.9629], // Center of India
+  zoom = 5, // Show most of India
   onMapReady
 }: LeafletMapProps) => {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -46,8 +52,6 @@ const LeafletMap = ({
       const container = mapRef.current;
       const rect = container.getBoundingClientRect();
       
-      console.log('Initializing map with container rect:', rect);
-      
       // Force container to have minimum dimensions if needed
       if (rect.height === 0) {
         container.style.height = '400px';
@@ -59,25 +63,32 @@ const LeafletMap = ({
       const map = L.map(container, {
         zoomControl: true,
         attributionControl: true,
-        preferCanvas: false
+        preferCanvas: true, // Use canvas for better performance
+        maxBounds: INDIA_BOUNDS,
+        maxBoundsViscosity: 1.0,
+        minZoom: 4,
+        maxZoom: 16, // Reduced max zoom for better performance
+        zoomAnimation: true,
+        fadeAnimation: true,
+        markerZoomAnimation: true
       }).setView(center, zoom);
 
-      // Add tile layer
+      // Add single optimized tile layer
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 19,
-        keepBuffer: 4,
+        maxZoom: 16,
+        keepBuffer: 2, // Reduced buffer for better performance
         updateWhenZooming: false,
-        updateWhenIdle: true
+        updateWhenIdle: true,
+        crossOrigin: true
       }).addTo(map);
 
       mapInstanceRef.current = map;
       
-      // Force map to resize and render
+      // Single initialization callback
       setTimeout(() => {
         if (map && mapRef.current) {
-          map.invalidateSize(true);
-          console.log('Map initialized and sized successfully');
+          map.invalidateSize(false); // false = no animation for performance
           onMapReady?.(map);
         }
       }, 100);
@@ -89,61 +100,60 @@ const LeafletMap = ({
     }
   }, [center, zoom, onMapReady]);
 
-  // Initialize map when component mounts
+  // Initialize map when component mounts - single attempt for performance
   useEffect(() => {
-    // Multiple initialization attempts with different timings
-    const timeouts = [0, 100, 500, 1000].map(delay => 
-      setTimeout(initializeMap, delay)
-    );
-
-    // Cleanup timeouts on unmount
-    return () => {
-      timeouts.forEach(clearTimeout);
-    };
+    const timer = setTimeout(initializeMap, 50);
+    return () => clearTimeout(timer);
   }, [initializeMap]);
 
-  // Handle container visibility changes
+  // Optimized container visibility handling
   useEffect(() => {
     if (!mapRef.current) return;
 
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting && mapInstanceRef.current) {
-          setTimeout(() => {
-            mapInstanceRef.current?.invalidateSize(true);
-          }, 50);
-        }
-      });
-    });
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting && mapInstanceRef.current) {
+            mapInstanceRef.current.invalidateSize(false); // No animation for performance
+          }
+        });
+      },
+      { threshold: 0.1 } // Only trigger when 10% visible
+    );
 
     observer.observe(mapRef.current);
-
     return () => observer.disconnect();
   }, []);
 
-  // Handle window resize
+  // Optimized window resize handler with debouncing
   useEffect(() => {
+    let resizeTimeout: NodeJS.Timeout;
+    
     const handleResize = () => {
-      if (mapInstanceRef.current) {
-        setTimeout(() => {
-          mapInstanceRef.current?.invalidateSize(true);
-        }, 100);
-      }
+      if (resizeTimeout) clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.invalidateSize(false);
+        }
+      }, 150); // Debounced resize
     };
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    window.addEventListener('resize', handleResize, { passive: true });
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (resizeTimeout) clearTimeout(resizeTimeout);
+    };
   }, []);
 
-  // Get map instance
-  const getMapInstance = useCallback(() => mapInstanceRef.current, []);
-
-  // Expose map instance via ref callback
+  // Cleanup on unmount
   useEffect(() => {
-    if (mapInstanceRef.current && onMapReady) {
-      onMapReady(mapInstanceRef.current);
-    }
-  }, [onMapReady]);
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, []);
 
   return (
     <div 
