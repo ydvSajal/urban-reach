@@ -213,22 +213,29 @@ const Index = () => {
             </div>
 
             {/* Team Members Grid */}
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-12 mb-16">
               {/* Team Lead - Sajal */}
-              <div className="text-center group">
-                <div className="relative inline-block mb-6">
-                  <div className="w-24 h-24 mx-auto relative">
-                    <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full animate-pulse opacity-20"></div>
-                    <div className="absolute inset-1 bg-white rounded-full shadow-2xl overflow-hidden">
+              <div className="text-center group cursor-pointer">
+                <div className="relative inline-block mb-6 transform transition-all duration-500 ease-out group-hover:scale-110">
+                  <div className="w-40 h-40 mx-auto relative">
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full opacity-20 group-hover:opacity-40 transition-all duration-500 group-hover:scale-105 animate-pulse"></div>
+                    <div className="absolute inset-2 bg-white rounded-full shadow-2xl overflow-hidden group-hover:shadow-3xl transition-all duration-500 ring-4 ring-transparent group-hover:ring-blue-200">
                       <img 
                         src="/team-lead.png" 
                         alt="Sajal - Team Lead" 
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover object-center transition-all duration-500 group-hover:scale-110"
+                        style={{ 
+                          imageRendering: 'auto',
+                          filter: 'contrast(1.05) brightness(1.02) saturate(1.1)'
+                        }}
+                        loading="eager"
                       />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                     </div>
-                    <div className="absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center shadow-lg">
-                      <span className="text-white text-xs font-bold">👑</span>
+                    <div className="absolute -top-2 -right-2 w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center shadow-lg transform transition-all duration-500 group-hover:scale-125 group-hover:rotate-12">
+                      <span className="text-white text-sm font-bold">👑</span>
                     </div>
+                    <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-blue-400/20 via-transparent to-purple-400/20 opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
                   </div>
                   <h4 className="text-xl font-bold text-gray-900 mb-2">Sajal</h4>
                   <p className="text-blue-600 font-semibold">Team Lead</p>
@@ -244,20 +251,26 @@ const Index = () => {
                 { name: "Jitesh", role: "DevOps Engineer", image: "/jitesh.jpg" },
                 { name: "Sakshi", role: "UI/UX Designer", image: "/sakshi.jpg" }
               ].map((member, index) => (
-                <div key={member.name} className="text-center group">
-                  <div className="relative inline-block mb-6">
-                    <div className="w-24 h-24 mx-auto relative">
+                <div key={member.name} className="text-center group cursor-pointer">
+                  <div className="relative inline-block mb-6 transform transition-all duration-500 ease-out group-hover:scale-110">
+                    <div className="w-36 h-36 mx-auto relative">
                       {/* Animated ring */}
-                      <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
+                      <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full opacity-0 group-hover:opacity-30 transition-all duration-500 group-hover:scale-105"></div>
                       
                       {member.image ? (
                         /* Real photo */
-                        <div className="absolute inset-1 bg-white rounded-full shadow-2xl overflow-hidden">
+                        <div className="absolute inset-2 bg-white rounded-full shadow-2xl overflow-hidden group-hover:shadow-3xl transition-all duration-500 ring-4 ring-transparent group-hover:ring-blue-200">
                           <img 
                             src={member.image} 
                             alt={`${member.name} - ${member.role}`} 
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-cover object-center transition-all duration-500 group-hover:scale-110"
+                            style={{ 
+                              imageRendering: 'auto',
+                              filter: 'contrast(1.05) brightness(1.02) saturate(1.1)'
+                            }}
+                            loading="lazy"
                           />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                         </div>
                       ) : (
                         /* Placeholder avatar */
