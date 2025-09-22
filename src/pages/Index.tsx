@@ -195,30 +195,48 @@ const Index = () => {
           </div>
           
           <div className="max-w-7xl mx-auto">
-            {/* Team Lead */}
+            {/* Team Photo */}
             <div className="text-center mb-16">
-              <div className="relative inline-block mb-8">
-                <div className="w-32 h-32 mx-auto relative">
-                  <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full animate-pulse opacity-20"></div>
-                  <div className="absolute inset-1 bg-white rounded-full shadow-2xl overflow-hidden">
-                    <img 
-                      src="/src/assets/team-lead.png" 
-                      alt="Sajal - Team Lead" 
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center shadow-lg">
-                    <span className="text-white text-xs font-bold">👑</span>
-                  </div>
+              <div className="relative inline-block">
+                <div className="relative overflow-hidden rounded-3xl shadow-2xl border-8 border-white">
+                  <img 
+                    src="/src/assets/team-photo.jpg" 
+                    alt="Team GlitchFix at Smart India Hackathon 2024" 
+                    className="w-full max-w-4xl h-auto object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent"></div>
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">Sajal</h3>
-                <p className="text-blue-600 font-semibold text-lg">Team Lead</p>
-                <div className="w-20 h-1 bg-gradient-to-r from-blue-500 to-purple-500 mx-auto mt-3 rounded-full"></div>
+                <div className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 bg-white px-6 py-3 rounded-full shadow-lg border-4 border-blue-100">
+                  <span className="text-blue-600 font-bold text-lg">Team GlitchFix</span>
+                </div>
               </div>
             </div>
 
             {/* Team Members Grid */}
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
+              {/* Team Lead - Sajal */}
+              <div className="text-center group">
+                <div className="relative inline-block mb-6">
+                  <div className="w-24 h-24 mx-auto relative">
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full animate-pulse opacity-20"></div>
+                    <div className="absolute inset-1 bg-white rounded-full shadow-2xl overflow-hidden">
+                      <img 
+                        src="/src/assets/team-lead.png" 
+                        alt="Sajal - Team Lead" 
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center shadow-lg">
+                      <span className="text-white text-xs font-bold">👑</span>
+                    </div>
+                  </div>
+                  <h4 className="text-xl font-bold text-gray-900 mb-2">Sajal</h4>
+                  <p className="text-blue-600 font-semibold">Team Lead</p>
+                  <div className="w-12 h-0.5 bg-gradient-to-r from-blue-400 to-purple-500 mx-auto mt-2 rounded-full"></div>
+                </div>
+              </div>
+
+              {/* Other Team Members */}
               {[
                 { name: "Devansh", role: "Full Stack Developer" },
                 { name: "Raghav", role: "Backend Engineer" },
