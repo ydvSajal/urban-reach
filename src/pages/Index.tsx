@@ -184,7 +184,7 @@ const Index = () => {
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <div className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full mb-6">
-              <span className="text-sm font-semibold text-blue-800 uppercase tracking-wider">SIH 2024 Hackathon</span>
+              <span className="text-sm font-semibold text-blue-800 uppercase tracking-wider">SIH 2025 Hackathon</span>
             </div>
             <h2 className="text-5xl sm:text-6xl font-bold mb-6 bg-gradient-to-r from-blue-600 via-blue-700 to-purple-600 bg-clip-text text-transparent">
               Meet Team GlitchFix
@@ -201,7 +201,7 @@ const Index = () => {
                 <div className="relative overflow-hidden rounded-3xl shadow-2xl border-8 border-white">
                   <img 
                     src="/team-photo.jpg" 
-                    alt="Team GlitchFix at Smart India Hackathon 2024" 
+                    alt="Team GlitchFix at Smart India Hackathon 2025" 
                     className="w-full max-w-4xl h-auto object-cover"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent"></div>
@@ -313,10 +313,10 @@ const Index = () => {
             <span className="text-gray-900 font-semibold">Municipal Portal by Team GlitchFix</span>
           </div>
           <p className="text-gray-600">
-            © 2024 Municipal Portal. Streamlining city services for everyone.
+            © 2025 Municipal Portal. Streamlining city services for everyone.
           </p>
           <p className="text-sm text-gray-500 mt-2">
-            Developed for Smart India Hackathon 2024
+            Developed for Smart India Hackathon 2025
           </p>
         </div>
       </footer>
