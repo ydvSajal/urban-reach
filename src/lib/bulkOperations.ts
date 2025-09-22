@@ -267,7 +267,7 @@ export class BulkOperationsService {
     try {
       // Check if user is admin or has appropriate permissions
       const { data: userRole } = await supabase
-        .rpc('get_user_role', { user_uuid: userId });
+        .rpc('get_user_role_direct', { user_uuid: userId });
 
       if (userRole === 'admin') {
         return true;

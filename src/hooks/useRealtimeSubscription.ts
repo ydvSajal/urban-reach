@@ -10,7 +10,7 @@ export type TableName = 'reports' | 'report_status_history' | 'workers' | 'notif
 // Global subscription manager to prevent duplicates
 class SubscriptionManager {
   private static instance: SubscriptionManager;
-  private subscriptions = new Map<string, RealtimeChannel>();
+  public subscriptions = new Map<string, RealtimeChannel>();
   private subscribers = new Map<string, Set<string>>();
   private callbacks = new Map<string, Map<string, (payload: any) => void>>();
 

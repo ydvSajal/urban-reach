@@ -8,7 +8,7 @@ import {
   User, 
   ExternalLink, 
   Info,
-  Tabs as TabsIcon
+  TabletSmartphone
 } from 'lucide-react';
 
 const MultiRoleGuide: React.FC = () => {
@@ -51,7 +51,7 @@ const MultiRoleGuide: React.FC = () => {
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-8">
-          <TabsIcon className="h-16 w-16 text-primary mx-auto mb-4" />
+          <TabletSmartphone className="h-16 w-16 text-primary mx-auto mb-4" />
           <h1 className="text-4xl font-bold mb-2">Municipal Portal</h1>
           <p className="text-xl text-muted-foreground mb-4">
             Access different dashboards for testing and management

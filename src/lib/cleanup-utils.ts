@@ -14,7 +14,7 @@ export const performFullCleanup = () => {
     console.log('Session storage cleaned up');
     
     // Clear any pending timeouts/intervals
-    const highestTimeoutId = setTimeout(() => {}, 0);
+    const highestTimeoutId = Number(setTimeout(() => {}, 0));
     for (let i = 0; i < highestTimeoutId; i++) {
       clearTimeout(i);
       clearInterval(i);
@@ -103,7 +103,15 @@ export const monitorResourceUsage = () => {
 
       // Check for excessive event listeners
       const events = (window as any).getEventListeners?.(window) || {};
-      const eventCount = Object.values(events).reduce((sum: number, arr: any) => sum + (arr?.length || 0), 0);
+      let eventCount = 0;
+      try {
+        eventCount = Object.values(events).reduce<number>((sum: number, arr: unknown) => {
+          const length = Array.isArray(arr) ? arr.length : 0;
+          return sum + length;
+        }, 0);
+      } catch (e) {
+        eventCount = 0;
+      }
       if (eventCount > 100) {
         console.warn('High event listener count detected:', eventCount);
       }
