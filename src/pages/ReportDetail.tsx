@@ -8,8 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { ArrowLeft, MapPin, User, Phone, Mail, Save, MessageSquare } from "lucide-react";
+import { ArrowLeft, MapPin, User, Phone, Mail, Save, MessageSquare, Mic } from "lucide-react";
 import ImageGallery from "@/components/ImageGallery";
+import AudioPlayer from "@/components/AudioPlayer";
 import WorkerAssignment from "@/components/WorkerAssignment";
 import StatusUpdate from "@/components/StatusUpdate";
 import StatusTimeline from "@/components/StatusTimeline";
@@ -29,6 +30,7 @@ interface Report {
   latitude: number;
   longitude: number;
   images: string[];
+  audio_message: string | null;
   created_at: string;
   updated_at: string;
   resolved_at: string | null;
@@ -555,6 +557,17 @@ const ReportDetail = () => {
                     showDownload={true}
                     showShare={true}
                     className="mt-4"
+                  />
+                </div>
+              )}
+
+              {report.audio_message && (
+                <div>
+                  <h4 className="font-medium text-sm mb-2">Audio Message</h4>
+                  <AudioPlayer
+                    audioUrl={report.audio_message}
+                    title="Citizen Audio Message"
+                    className="mt-2"
                   />
                 </div>
               )}

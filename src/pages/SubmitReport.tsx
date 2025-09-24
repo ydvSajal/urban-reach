@@ -10,8 +10,9 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { toast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
-import { Loader2, MapPin, FileText, Camera, AlertCircle } from "lucide-react";
+import { Loader2, MapPin, FileText, Camera, AlertCircle, Mic } from "lucide-react";
 import ImageUpload from "@/components/ImageUpload";
+import AudioRecorder from "@/components/AudioRecorder";
 import { uploadFiles } from "@/lib/storage";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { AddressFormatter } from "@/lib/geocoding";
@@ -21,6 +22,8 @@ const SubmitReport = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
+  const [uploadingAudio, setUploadingAudio] = useState(false);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   // Remove unused selectedFiles state since we handle files directly in the upload function
   const networkStatus = useNetworkStatus();
   const [formData, setFormData] = useState({
@@ -80,6 +83,50 @@ const SubmitReport = () => {
       return [];
     } finally {
       setUploadingImages(false);
+    }
+  };
+
+  // Handle audio recording
+  const handleAudioRecorded = (blob: Blob) => {
+    setAudioBlob(blob);
+  };
+
+  // Upload audio file to storage
+  const uploadAudioFile = async (audioBlob: Blob, reportId: string): Promise<string | null> => {
+    try {
+      setUploadingAudio(true);
+      
+      // Convert blob to file
+      const audioFile = new File([audioBlob], `audio_message_${reportId}.webm`, {
+        type: 'audio/webm'
+      });
+
+      // Upload to storage
+      const { data, error } = await supabase.storage
+        .from('reports')
+        .upload(`${reportId}/audio_message.webm`, audioFile, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (error) throw error;
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('reports')
+        .getPublicUrl(data.path);
+
+      return urlData.publicUrl;
+    } catch (error) {
+      console.error('Error uploading audio:', error);
+      toast({
+        title: "Audio upload failed",
+        description: "Failed to upload audio message. Report will be submitted without audio.",
+        variant: "destructive",
+      });
+      return null;
+    } finally {
+      setUploadingAudio(false);
     }
   };
 
@@ -153,7 +200,13 @@ const SubmitReport = () => {
 
       // Images are handled directly in the ImageUpload component
       let imageUrls: string[] = [];
-      // Images will be handled by the ImageUpload component's onUpload callback
+      let audioUrl: string | null = null;
+      
+      // Handle audio upload if audio was recorded
+      if (audioBlob) {
+        const tempReportId = `temp_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+        audioUrl = await uploadAudioFile(audioBlob, tempReportId);
+      }
 
       // Prepare location data - default to Bennett University for testing
       const locationAddress = selectedLocation 
@@ -180,6 +233,7 @@ const SubmitReport = () => {
           status: "pending",
           report_number: "", // Will be set by database trigger
           images: imageUrls, // Add uploaded image URLs
+          audio_message: audioUrl, // Add uploaded audio URL
         })
         .select()
         .maybeSingle();
@@ -194,7 +248,7 @@ const SubmitReport = () => {
         title: "Report submitted successfully!",
         description: `Your report #${data.report_number} has been submitted and is being reviewed.${
           imageUrls.length > 0 ? ` ${imageUrls.length} image${imageUrls.length === 1 ? '' : 's'} attached.` : ''
-        }${locationInfo}`,
+        }${audioUrl ? ' Audio message included.' : ''}${locationInfo}`,
       });
 
       navigate("/citizen-dashboard");
@@ -208,6 +262,7 @@ const SubmitReport = () => {
     } finally {
       setLoading(false);
       setUploadingImages(false);
+      setUploadingAudio(false);
     }
   };
 
@@ -242,6 +297,21 @@ const SubmitReport = () => {
               </Alert>
             )}
 
+            {/* Loading states */}
+            {(uploadingImages || uploadingAudio) && (
+              <Alert>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <AlertDescription>
+                  {uploadingImages && uploadingAudio 
+                    ? "Uploading images and audio..."
+                    : uploadingImages 
+                    ? "Uploading images..."
+                    : "Uploading audio..."
+                  } Please don't close this page.
+                </AlertDescription>
+              </Alert>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="title">Issue Title *</Label>
               <Input
@@ -260,7 +330,7 @@ const SubmitReport = () => {
                 value={formData.category} 
                 onValueChange={(value: Database['public']['Enums']['report_category']) => setFormData({ ...formData, category: value })}
                 required
-                disabled={loading || uploadingImages}
+                disabled={loading || uploadingImages || uploadingAudio}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select issue category" />
@@ -284,7 +354,7 @@ const SubmitReport = () => {
                 placeholder="Provide a detailed description of the issue, including when you noticed it and how it affects you or the community"
                 className="min-h-[120px]"
                 required
-                disabled={loading || uploadingImages}
+                disabled={loading || uploadingImages || uploadingAudio}
               />
             </div>
 
@@ -302,17 +372,25 @@ const SubmitReport = () => {
                 maxSizePerFile={5 * 1024 * 1024} // 5MB
                 acceptedTypes={['image/jpeg', 'image/png', 'image/webp']}
                 onUpload={handleImageUpload}
-                disabled={loading || uploadingImages}
+                disabled={loading || uploadingImages || uploadingAudio}
                 className="border rounded-lg p-4"
               />
-              {uploadingImages && (
-                <Alert>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <AlertDescription>
-                    Uploading images... Please don't close this page.
-                  </AlertDescription>
-                </Alert>
-              )}
+            </div>
+
+            {/* Audio Recording Section */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Mic className="h-4 w-4" />
+                Audio Message (Optional)
+              </Label>
+              <p className="text-sm text-muted-foreground mb-3">
+                Record an audio message to provide additional context about the issue.
+              </p>
+              <AudioRecorder
+                onAudioRecorded={handleAudioRecorded}
+                disabled={loading || uploadingImages || uploadingAudio}
+                maxDurationMinutes={3}
+              />
             </div>
 
             {/* Location Section */}
@@ -327,7 +405,7 @@ const SubmitReport = () => {
                   variant="outline"
                   size="sm"
                   onClick={() => setShowLocationPicker(!showLocationPicker)}
-                  disabled={loading || uploadingImages}
+                  disabled={loading || uploadingImages || uploadingAudio}
                 >
                   {showLocationPicker ? "Hide Map" : "Use Map"}
                 </Button>
@@ -377,7 +455,7 @@ const SubmitReport = () => {
                     }}
                     placeholder="Street address or area name"
                     required={!selectedLocation}
-                    disabled={loading || uploadingImages}
+                    disabled={loading || uploadingImages || uploadingAudio}
                   />
                   <p className="text-xs text-muted-foreground">
                     {selectedLocation 
@@ -394,7 +472,7 @@ const SubmitReport = () => {
                     value={formData.landmark}
                     onChange={(e) => setFormData({ ...formData, landmark: e.target.value })}
                     placeholder="Hospital, school, market, etc."
-                    disabled={loading || uploadingImages}
+                    disabled={loading || uploadingImages || uploadingAudio}
                   />
                 </div>
               </div>
@@ -405,7 +483,7 @@ const SubmitReport = () => {
             <Select 
               value={formData.priority} 
               onValueChange={(value: Database['public']['Enums']['priority_level']) => setFormData({ ...formData, priority: value })}
-              disabled={loading || uploadingImages}
+              disabled={loading || uploadingImages || uploadingAudio}
             >
                 <SelectTrigger>
                   <SelectValue />
@@ -421,17 +499,17 @@ const SubmitReport = () => {
             <div className="flex gap-4">
               <Button 
                 type="submit" 
-                disabled={loading || uploadingImages || !networkStatus.online} 
+                disabled={loading || uploadingImages || uploadingAudio || !networkStatus.online} 
                 className="flex-1"
               >
-                {(loading || uploadingImages) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {uploadingImages ? "Uploading Images..." : loading ? "Submitting..." : "Submit Report"}
+                {(loading || uploadingImages || uploadingAudio) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {uploadingImages ? "Uploading Images..." : uploadingAudio ? "Uploading Audio..." : loading ? "Submitting..." : "Submit Report"}
               </Button>
               <Button 
                 type="button" 
                 variant="outline" 
                 onClick={() => navigate("/citizen-dashboard")}
-                disabled={loading || uploadingImages}
+                disabled={loading || uploadingImages || uploadingAudio}
               >
                 Cancel
               </Button>

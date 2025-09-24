@@ -20,7 +20,8 @@ import {
   Flag,
   Eye,
   MessageSquare,
-  ImageIcon
+  ImageIcon,
+  Mic
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
@@ -42,6 +43,7 @@ interface Report {
   citizen_id: string;
   assigned_worker_id?: string;
   image_urls?: string[];
+  audio_message?: string;
   upvotes_count?: number;
   comments_count?: number;
   // Joined fields
@@ -411,6 +413,13 @@ const ReportsListWithBulk: React.FC<ReportsListWithBulkProps> = ({
                       <div className="flex items-center gap-1">
                         <ImageIcon className="h-4 w-4" />
                         <span>{report.image_urls.length} image{report.image_urls.length === 1 ? '' : 's'}</span>
+                      </div>
+                    )}
+
+                    {report.audio_message && (
+                      <div className="flex items-center gap-1">
+                        <Mic className="h-4 w-4" />
+                        <span>Audio message</span>
                       </div>
                     )}
                   </div>

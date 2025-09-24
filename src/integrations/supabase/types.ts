@@ -132,6 +132,7 @@ export type Database = {
       reports: {
         Row: {
           assigned_worker_id: string | null
+          audio_message: string | null
           category: Database["public"]["Enums"]["report_category"]
           citizen_id: string
           completion_photos: string[] | null
@@ -152,6 +153,7 @@ export type Database = {
         }
         Insert: {
           assigned_worker_id?: string | null
+          audio_message?: string | null
           category: Database["public"]["Enums"]["report_category"]
           citizen_id: string
           completion_photos?: string[] | null
@@ -172,6 +174,7 @@ export type Database = {
         }
         Update: {
           assigned_worker_id?: string | null
+          audio_message?: string | null
           category?: Database["public"]["Enums"]["report_category"]
           citizen_id?: string
           completion_photos?: string[] | null
