@@ -236,196 +236,220 @@ const Reports = () => {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Reports Management</h1>
-        <p className="text-muted-foreground flex items-center gap-2">
-          Manage and track all reported issues from citizens
-          <span className="flex items-center gap-1">
-            <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'}`} />
-            <span className={isOnline ? 'text-green-600' : 'text-destructive'}>
-              {isOnline ? 'Live Updates' : 'Offline'}
-            </span>
-          </span>
-        </p>
-      </div>
-
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Filter className="h-5 w-5" />
-            Filters
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search reports..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
-              />
+    <div className="min-h-screen bg-gradient-to-br from-background to-muted/20 p-6">
+      <div className="mx-auto max-w-7xl space-y-8 animate-fade-in">
+        {/* Hero Header */}
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-primary/10 via-chart-1/5 to-chart-2/10 p-8 shadow-xl border border-primary/10 backdrop-blur-sm">
+          <div className="absolute inset-0 bg-grid-white/[0.05] opacity-50" />
+          <div className="relative">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-chart-1 bg-clip-text text-transparent">
+                  Reports Management
+                </h1>
+                <p className="mt-2 text-lg text-muted-foreground">
+                  Advanced municipal report tracking and management system
+                </p>
+                <div className="mt-4 flex items-center gap-3">
+                  <div className={`w-3 h-3 rounded-full ${isOnline ? 'bg-chart-2' : 'bg-destructive'} animate-pulse`} />
+                  <span className={`font-medium ${isOnline ? 'text-chart-2' : 'text-destructive'}`}>
+                    {isOnline ? 'Live Updates Active' : 'Connection Lost'}
+                  </span>
+                  <span className="text-muted-foreground">•</span>
+                  <span className="text-sm text-muted-foreground">{filteredReports.length} reports shown</span>
+                </div>
+              </div>
             </div>
-
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                {statuses.filter(status => status && status.trim() !== '').map((status) => (
-                  <SelectItem key={status} value={status}>
-                    {status.replace('_', ' ').toUpperCase()}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                {categories.filter(category => category && category.trim() !== '').map((category) => (
-                  <SelectItem key={category} value={category}>
-                    {category.replace('_', ' ').toUpperCase()}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-              <SelectTrigger>
-                <SelectValue placeholder="Priority" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Priorities</SelectItem>
-                {priorities.filter(priority => priority && priority.trim() !== '').map((priority) => (
-                  <SelectItem key={priority} value={priority}>
-                    {priority.toUpperCase()}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setSearchTerm("");
-                setStatusFilter("all");
-                setCategoryFilter("all");
-                setPriorityFilter("all");
-              }}
-            >
-              Clear Filters
-            </Button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Results Summary */}
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          Showing {filteredReports.length} of {reports.length} reports
-        </p>
-      </div>
+        {/* Smart Filters Panel */}
+        <Card className="shadow-lg border-0 bg-gradient-to-br from-card/95 to-muted/30 backdrop-blur-sm">
+          <CardHeader className="pb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-chart-1 flex items-center justify-center">
+                <Filter className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <CardTitle className="text-xl">Smart Filters</CardTitle>
+                <p className="text-sm text-muted-foreground">Filter and search through reports intelligently</p>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+              <div className="relative lg:col-span-2">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search reports, citizens, or descriptions..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9 h-11 border-2 focus:border-primary/50 transition-all"
+                />
+              </div>
 
-      {/* Reports Table */}
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Report #</TableHead>
-                  <TableHead>Title</TableHead>
-                  <TableHead>Citizen</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Priority</TableHead>
-                  <TableHead>Assigned To</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredReports.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={9} className="text-center py-8">
-                      <div className="flex flex-col items-center gap-2">
-                        <Search className="h-8 w-8 text-muted-foreground" />
-                        <p className="text-muted-foreground">No reports found matching your criteria</p>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="h-11 border-2 focus:border-primary/50">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  {statuses.filter(status => status && status.trim() !== '').map((status) => (
+                    <SelectItem key={status} value={status}>
+                      {status.replace('_', ' ').toUpperCase()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="h-11 border-2 focus:border-primary/50">
+                  <SelectValue placeholder="Category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {categories.filter(category => category && category.trim() !== '').map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {category.replace('_', ' ').toUpperCase()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+                <SelectTrigger className="h-11 border-2 focus:border-primary/50">
+                  <SelectValue placeholder="Priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Priorities</SelectItem>
+                  {priorities.filter(priority => priority && priority.trim() !== '').map((priority) => (
+                    <SelectItem key={priority} value={priority}>
+                      {priority.toUpperCase()}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Button 
+                variant="outline"
+                size="lg"
+                className="h-11 border-2 hover:border-primary/50 transition-all hover:shadow-md"
+                onClick={() => {
+                  setSearchTerm("");
+                  setStatusFilter("all");
+                  setCategoryFilter("all");
+                  setPriorityFilter("all");
+                }}
+              >
+                Clear All
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Reports Grid */}
+        <div className="space-y-6">
+          {filteredReports.length === 0 ? (
+            <Card className="shadow-xl border-0 bg-gradient-to-br from-card/80 to-muted/40 backdrop-blur-sm">
+              <CardContent className="py-16">
+                <div className="flex flex-col items-center gap-4">
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-muted to-muted/40 flex items-center justify-center">
+                    <Search className="h-10 w-10 text-muted-foreground" />
+                  </div>
+                  <div className="text-center">
+                    <h3 className="text-xl font-semibold mb-2">No Reports Found</h3>
+                    <p className="text-muted-foreground">Try adjusting your filters or search terms</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4">
+              {filteredReports.map((report, index) => (
+                <Card key={report.id} className={`group shadow-lg border-0 bg-gradient-to-r from-card/95 to-muted/20 backdrop-blur-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 animate-fade-in`} style={{ animationDelay: `${index * 50}ms` }}>
+                  <CardContent className="p-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
+                      <div className="lg:col-span-2">
+                        <div className="text-center lg:text-left">
+                          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r from-primary/10 to-chart-1/10 text-sm font-medium">
+                            #{report.report_number}
+                          </div>
+                        </div>
                       </div>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredReports.map((report) => (
-                    <TableRow key={report.id}>
-                      <TableCell className="font-medium">
-                        #{report.report_number}
-                      </TableCell>
-                      <TableCell>
+                      
+                      <div className="lg:col-span-3">
                         <div>
-                          <p className="font-medium">{report.title}</p>
-                          <p className="text-sm text-muted-foreground truncate max-w-[200px]">
-                            {report.description}
-                          </p>
+                          <h3 className="font-semibold text-lg mb-1 group-hover:text-primary transition-colors">{report.title}</h3>
+                          <p className="text-sm text-muted-foreground line-clamp-2">{report.description}</p>
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{report.profiles?.full_name || 'N/A'}</p>
-                          <p className="text-sm text-muted-foreground">{report.profiles?.email}</p>
+                      </div>
+                      
+                      <div className="lg:col-span-2">
+                        <div className="text-center lg:text-left">
+                          <p className="font-medium">{report.profiles?.full_name || 'Unknown'}</p>
+                          <p className="text-xs text-muted-foreground">{report.profiles?.email}</p>
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="capitalize">
+                      </div>
+                      
+                      <div className="lg:col-span-1">
+                        <Badge variant="outline" className="capitalize justify-center">
                           {report.category.replace('_', ' ')}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={`border capitalize ${getStatusBadgeColor(report.status)}`}>
+                      </div>
+                      
+                      <div className="lg:col-span-1">
+                        <Badge className={`border capitalize justify-center ${getStatusBadgeColor(report.status)}`}>
                           {report.status.replace('_', ' ')}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={`border capitalize ${getPriorityBadgeColor(report.priority)}`}>
+                      </div>
+                      
+                      <div className="lg:col-span-1">
+                        <Badge className={`border capitalize justify-center ${getPriorityBadgeColor(report.priority)}`}>
                           {report.priority}
                         </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {report.workers ? (
-                          <p className="text-sm">{report.workers.full_name}</p>
-                        ) : (
-                          <p className="text-sm text-muted-foreground">Unassigned</p>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1 text-sm">
-                          <Calendar className="h-3 w-3" />
-                          {formatDate(report.created_at)}
+                      </div>
+                      
+                      <div className="lg:col-span-1">
+                        <div className="text-center lg:text-left">
+                          {report.workers ? (
+                            <p className="text-sm font-medium">{report.workers.full_name}</p>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">Unassigned</p>
+                          )}
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <Button asChild size="sm" variant="outline">
-                          <Link to={`/reports/${report.id}`}>
-                            <Eye className="h-4 w-4 mr-1" />
+                      </div>
+                      
+                      <div className="lg:col-span-1 text-center lg:text-right">
+                        <Button 
+                          asChild 
+                          size="sm" 
+                          className="bg-gradient-to-r from-primary to-chart-1 hover:from-primary/90 hover:to-chart-1/90 shadow-lg hover:shadow-xl transition-all"
+                        >
+                          <Link to={`/reports/${report.id}`} className="inline-flex items-center gap-2">
+                            <Eye className="h-4 w-4" />
                             View
                           </Link>
                         </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-4 pt-4 border-t border-border/50 flex items-center justify-between text-xs text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-3 w-3" />
+                        <span>Created {formatDate(report.created_at)}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-3 w-3" />
+                        <span className="truncate max-w-[200px]">{report.location_address || 'Location not specified'}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

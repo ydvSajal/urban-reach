@@ -190,114 +190,149 @@ const Workers = () => {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Workers Management</h1>
-          <p className="text-muted-foreground">
-            Manage registered workers and their assignments. Workers can register themselves through the worker portal.
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="text-sm text-muted-foreground">
-            Workers can self-register at the <strong>Worker Portal</strong>
-          </p>
-          <p className="text-xs text-muted-foreground">
-            They will appear here automatically after registration
-          </p>
-        </div>
-      </div>
-
-      {/* Search */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search workers..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9"
-            />
+    <div className="min-h-screen bg-gradient-to-br from-background via-muted/10 to-chart-2/5 p-6">
+      <div className="mx-auto max-w-7xl space-y-8 animate-fade-in">
+        {/* Hero Header */}
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-chart-2/15 via-primary/10 to-chart-1/15 p-8 shadow-2xl border border-chart-2/20 backdrop-blur-sm">
+          <div className="absolute inset-0 bg-grid-white/[0.05]" />
+          <div className="relative">
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+              <div className="flex-1">
+                <div className="flex items-center gap-4 mb-4">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-chart-2 to-primary flex items-center justify-center shadow-lg">
+                    <UserPlus className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-4xl font-bold bg-gradient-to-r from-chart-2 via-primary to-chart-1 bg-clip-text text-transparent">
+                      Workers Hub
+                    </h1>
+                    <p className="text-lg text-muted-foreground">
+                      Manage your workforce and track assignments efficiently
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-chart-2">{workers.length}</div>
+                    <div className="text-xs text-muted-foreground">Total Workers</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-primary">{workers.filter(w => w.is_available).length}</div>
+                    <div className="text-xs text-muted-foreground">Available</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-chart-3">{workers.filter(w => w.specialty).length}</div>
+                    <div className="text-xs text-muted-foreground">Specialists</div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="text-center lg:text-right p-6 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20">
+                <div className="text-sm font-medium mb-2">Worker Registration</div>
+                <p className="text-xs text-muted-foreground mb-1">
+                  Workers can self-register at the
+                </p>
+                <p className="text-sm font-semibold text-primary">Worker Portal</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  They appear here automatically
+                </p>
+              </div>
+            </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Results Summary */}
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          Showing {filteredWorkers.length} of {workers.length} workers
-        </p>
-      </div>
+        {/* Search Panel */}
+        <Card className="shadow-lg border-0 bg-gradient-to-br from-card/95 to-muted/30 backdrop-blur-sm">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search workers by name, email, or specialty..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9 h-11 border-2 focus:border-primary/50 transition-all"
+                />
+              </div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <span>{filteredWorkers.length} of {workers.length} workers</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-      {/* Workers Table */}
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Specialty</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Added</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredWorkers.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8">
-                      <div className="flex flex-col items-center gap-2">
-                        <UserPlus className="h-8 w-8 text-muted-foreground" />
-                        <p className="text-muted-foreground">
-                          {searchTerm ? "No workers found matching your criteria" : "No workers registered yet"}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Workers can register through the Worker Portal
-                        </p>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredWorkers.map((worker) => (
-                    <TableRow key={worker.id}>
-                      <TableCell>
-                        <div>
-                          <p className="font-medium">{worker.full_name}</p>
+        {/* Workers Grid */}
+        <div className="space-y-6">
+          {filteredWorkers.length === 0 ? (
+            <Card className="shadow-xl border-0 bg-gradient-to-br from-card/80 to-muted/40 backdrop-blur-sm">
+              <CardContent className="py-16">
+                <div className="flex flex-col items-center gap-4">
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-chart-2/20 to-primary/20 flex items-center justify-center">
+                    <UserPlus className="h-10 w-10 text-muted-foreground" />
+                  </div>
+                  <div className="text-center">
+                    <h3 className="text-xl font-semibold mb-2">
+                      {searchTerm ? "No Workers Found" : "No Workers Registered Yet"}
+                    </h3>
+                    <p className="text-muted-foreground">
+                      {searchTerm 
+                        ? "Try adjusting your search terms" 
+                        : "Workers can register through the Worker Portal"
+                      }
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4">
+              {filteredWorkers.map((worker, index) => (
+                <Card key={worker.id} className={`group shadow-lg border-0 bg-gradient-to-r from-card/95 to-muted/20 backdrop-blur-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 animate-fade-in`} style={{ animationDelay: `${index * 50}ms` }}>
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-chart-2 to-primary flex items-center justify-center text-white font-semibold text-lg shadow-lg">
+                          {worker.full_name.charAt(0).toUpperCase()}
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1 text-sm">
-                            <Mail className="h-3 w-3" />
-                            {worker.email}
-                          </div>
-                          {worker.phone && (
-                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                              <Phone className="h-3 w-3" />
-                              {worker.phone}
+                        
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-lg mb-1 group-hover:text-primary transition-colors">
+                            {worker.full_name}
+                          </h3>
+                          <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                              <Mail className="h-3 w-3" />
+                              <span>{worker.email}</span>
                             </div>
-                          )}
+                            {worker.phone && (
+                              <div className="flex items-center gap-1">
+                                <Phone className="h-3 w-3" />
+                                <span>{worker.phone}</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </TableCell>
-                      <TableCell>
+                      </div>
+                      
+                      <div className="flex items-center gap-3">
                         {worker.specialty ? (
-                          <Badge variant="outline">{worker.specialty}</Badge>
+                          <Badge variant="outline" className="bg-gradient-to-r from-primary/10 to-chart-1/10 border-primary/20">
+                            {worker.specialty}
+                          </Badge>
                         ) : (
-                          <span className="text-sm text-muted-foreground">Not specified</span>
+                          <span className="text-sm text-muted-foreground px-3 py-1 rounded-full bg-muted/50">
+                            No specialty
+                          </span>
                         )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={worker.is_available ? "default" : "secondary"}>
+                        
+                        <Badge 
+                          variant={worker.is_available ? "default" : "secondary"}
+                          className={worker.is_available ? "bg-gradient-to-r from-chart-2 to-chart-2/80" : ""}
+                        >
                           {worker.is_available ? "Available" : "Unavailable"}
                         </Badge>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {formatDate(worker.created_at)}
-                      </TableCell>
-                      <TableCell>
+                        
                         <div className="flex items-center gap-2">
                           <Dialog>
                             <DialogTrigger asChild>
@@ -305,15 +340,16 @@ const Workers = () => {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => openEditDialog(worker)}
+                                className="hover:bg-primary/10 hover:border-primary/50 transition-all"
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
                             </DialogTrigger>
-                            <DialogContent>
+                            <DialogContent className="sm:max-w-md">
                               <DialogHeader>
-                                <DialogTitle>Edit Worker</DialogTitle>
+                                <DialogTitle>Edit Worker Profile</DialogTitle>
                                 <DialogDescription>
-                                  Update worker information and availability
+                                  Update worker information and availability status
                                 </DialogDescription>
                               </DialogHeader>
                               <form onSubmit={handleSubmit} className="space-y-4">
@@ -324,6 +360,7 @@ const Workers = () => {
                                     value={formData.full_name}
                                     onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                                     required
+                                    className="h-11"
                                   />
                                 </div>
                                 <div className="space-y-2">
@@ -334,15 +371,18 @@ const Workers = () => {
                                     value={formData.email}
                                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                                     required
+                                    className="h-11"
                                   />
                                 </div>
                                 <div className="space-y-2">
-                                  <Label htmlFor="edit_phone">Phone</Label>
+                                  <Label htmlFor="edit_phone">Phone Number</Label>
                                   <Input
                                     id="edit_phone"
                                     type="tel"
                                     value={formData.phone}
                                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                    placeholder="+91 98765 43210"
+                                    className="h-11"
                                   />
                                 </div>
                                 <div className="space-y-2">
@@ -352,43 +392,59 @@ const Workers = () => {
                                     value={formData.specialty}
                                     onChange={(e) => setFormData({ ...formData, specialty: e.target.value })}
                                     placeholder="e.g., Electrician, Plumber, Road Maintenance"
+                                    className="h-11"
                                   />
                                 </div>
-                                <div className="flex items-center space-x-2">
+                                <div className="flex items-center space-x-2 p-4 rounded-lg bg-muted/50">
                                   <Switch
                                     id="edit_is_available"
                                     checked={formData.is_available}
                                     onCheckedChange={(checked) => setFormData({ ...formData, is_available: checked })}
                                   />
-                                  <Label htmlFor="edit_is_available">Available for assignments</Label>
+                                  <Label htmlFor="edit_is_available" className="font-medium">
+                                    Available for assignments
+                                  </Label>
                                 </div>
                                 <DialogFooter>
                                   <Button type="button" variant="outline" onClick={resetForm}>
                                     Cancel
                                   </Button>
-                                  <Button type="submit">Update Worker</Button>
+                                  <Button type="submit" className="bg-gradient-to-r from-primary to-chart-1">
+                                    Update Worker
+                                  </Button>
                                 </DialogFooter>
                               </form>
                             </DialogContent>
                           </Dialog>
+                          
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() => handleDelete(worker)}
-                            className="text-destructive hover:text-destructive"
+                            className="hover:bg-destructive/10 hover:border-destructive/50 hover:text-destructive transition-all"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-4 pt-4 border-t border-border/50 flex items-center justify-between text-xs text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <span>Registered {formatDate(worker.created_at)}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <div className={`w-2 h-2 rounded-full ${worker.is_available ? 'bg-chart-2' : 'bg-muted-foreground'}`} />
+                        <span>{worker.is_available ? 'Ready for assignments' : 'Currently unavailable'}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

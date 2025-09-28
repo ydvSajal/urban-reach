@@ -217,294 +217,334 @@ const Analytics = () => {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Analytics</h1>
-          <p className="text-muted-foreground">
-            Insights and performance metrics for your municipal reports
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            onClick={() => setExportDialogOpen(true)}
-            className="flex items-center gap-2"
-          >
-            <Download className="h-4 w-4" />
-            Export Data
-          </Button>
-          <Select value={timeRange} onValueChange={setTimeRange}>
-            <SelectTrigger className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="7">Last 7 days</SelectItem>
-              <SelectItem value="30">Last 30 days</SelectItem>
-              <SelectItem value="90">Last 90 days</SelectItem>
-              <SelectItem value="365">Last year</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {statCards.map((stat) => (
-          <Card key={stat.title}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{stat.title}</CardTitle>
-              <stat.icon className={`h-4 w-4 ${stat.color}`} />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stat.value}</div>
-              <p className="text-xs text-muted-foreground">{stat.description}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Charts Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Reports by Category - Pie Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <PieChart className="h-5 w-5" />
-              Reports by Category
-            </CardTitle>
-            <CardDescription>Distribution of issues by type</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {data.reportsByCategory.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <RechartsPieChart>
-                  <Pie
-                    data={data.reportsByCategory}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={100}
-                    dataKey="value"
-                    label={({ name, percentage }) => `${name}: ${percentage}%`}
-                  >
-                    {data.reportsByCategory.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.fill} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </RechartsPieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-                No data available
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Reports by Status - Pie Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
-              Reports by Status
-            </CardTitle>
-            <CardDescription>Current status distribution</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {data.reportsByStatus.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <RechartsPieChart>
-                  <Pie
-                    data={data.reportsByStatus}
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={100}
-                    dataKey="value"
-                    label={({ name, percentage }) => `${name}: ${percentage}%`}
-                  >
-                    {data.reportsByStatus.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.fill} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </RechartsPieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-                No data available
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Reports Over Time - Line Chart */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="h-5 w-5" />
-              Reports Over Time
-            </CardTitle>
-            <CardDescription>Daily report submissions and resolutions (Last 7 days)</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {data.reportsOverTime.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={data.reportsOverTime}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Line type="monotone" dataKey="reports" stroke="hsl(var(--chart-1))" strokeWidth={2} name="New Reports" />
-                  <Line type="monotone" dataKey="resolved" stroke="hsl(var(--chart-2))" strokeWidth={2} name="Resolved Reports" />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-                No data available
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Reports by Priority - Bar Chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BarChart3 className="h-5 w-5" />
-              Reports by Priority
-            </CardTitle>
-            <CardDescription>Priority level distribution</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {data.reportsByPriority.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={data.reportsByPriority}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Bar dataKey="value" fill="hsl(var(--chart-1))" />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-[300px] flex items-center justify-center text-muted-foreground">
-                No data available
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Summary Stats */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              Key Performance Indicators
-            </CardTitle>
-            <CardDescription>Important metrics at a glance</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
-              <div className="text-center p-4 bg-gradient-to-br from-chart-2/10 to-chart-2/5 rounded-lg border border-chart-2/20">
-                <div className="text-3xl font-bold text-chart-2 mb-1">
-                  {data.totalReports > 0 ? Math.round((data.resolvedReports / data.totalReports) * 100) : 0}%
+    <div className="min-h-screen bg-gradient-to-br from-background via-muted/10 to-primary/5 p-6">
+      <div className="mx-auto max-w-7xl space-y-8 animate-fade-in">
+        {/* Hero Analytics Header */}
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-primary/20 via-chart-2/15 to-chart-1/20 p-8 shadow-2xl border border-primary/20 backdrop-blur-sm">
+          <div className="absolute inset-0 bg-grid-white/[0.05]" />
+          <div className="relative">
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-chart-1 flex items-center justify-center shadow-lg">
+                    <BarChart3 className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-4xl font-bold bg-gradient-to-r from-primary via-chart-1 to-chart-2 bg-clip-text text-transparent">
+                      Analytics Hub
+                    </h1>
+                    <p className="text-lg text-muted-foreground">
+                      Real-time insights and performance metrics
+                    </p>
+                  </div>
                 </div>
-                <div className="text-sm font-medium mb-2">Resolution Rate</div>
-                <Progress 
-                  value={data.totalReports > 0 ? Math.round((data.resolvedReports / data.totalReports) * 100) : 0} 
-                  className="h-2"
-                />
-                <div className="text-xs text-muted-foreground mt-2">
-                  {data.resolvedReports} of {data.totalReports} resolved
+                
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-primary">{data.totalReports}</div>
+                    <div className="text-xs text-muted-foreground">Total Reports</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-chart-2">{data.resolvedReports}</div>
+                    <div className="text-xs text-muted-foreground">Resolved</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-chart-3">{data.openReports}</div>
+                    <div className="text-xs text-muted-foreground">Open Cases</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-chart-5">{data.avgResolutionTime.toFixed(1)}d</div>
+                    <div className="text-xs text-muted-foreground">Avg Resolution</div>
+                  </div>
                 </div>
               </div>
               
-              <div className="space-y-3">
-                <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
-                  <span className="text-sm font-medium">Avg Resolution Time</span>
-                  <span className="text-sm font-bold text-chart-5">
-                    {data.avgResolutionTime.toFixed(1)} days
-                  </span>
-                </div>
-                
-                <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
-                  <span className="text-sm font-medium">Most Common Category</span>
-                  <span className="text-sm font-bold text-chart-1">
-                    {data.reportsByCategory.length > 0 
-                      ? data.reportsByCategory.reduce((prev, current) => (prev.value > current.value) ? prev : current).name
-                      : "N/A"
-                    }
-                  </span>
-                </div>
-                
-                <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
-                  <span className="text-sm font-medium">Open vs Resolved</span>
-                  <span className="text-sm font-bold">
-                    <span className="text-chart-3">{data.openReports}</span> / <span className="text-chart-2">{data.resolvedReports}</span>
-                  </span>
-                </div>
+              <div className="flex flex-col sm:flex-row items-center gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setExportDialogOpen(true)}
+                  className="bg-white/80 backdrop-blur-sm border-white/50 hover:bg-white/90 shadow-lg"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Export Data
+                </Button>
+                <Select value={timeRange} onValueChange={setTimeRange}>
+                  <SelectTrigger className="w-40 bg-white/80 backdrop-blur-sm border-white/50 hover:bg-white/90">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="7">Last 7 days</SelectItem>
+                    <SelectItem value="30">Last 30 days</SelectItem>
+                    <SelectItem value="90">Last 90 days</SelectItem>
+                    <SelectItem value="365">Last year</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Additional Insights */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Key Insights</CardTitle>
-          <CardDescription>Summary of important metrics and trends</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="text-center p-4 bg-blue-50 rounded-lg border">
-              <AlertTriangle className="h-8 w-8 text-blue-600 mx-auto mb-2" />
-              <p className="text-sm font-medium">Resolution Rate</p>
-              <p className="text-2xl font-bold text-blue-600">
-                {data.totalReports > 0 ? Math.round((data.resolvedReports / data.totalReports) * 100) : 0}%
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {data.resolvedReports} of {data.totalReports} resolved
-              </p>
-            </div>
-            <div className="text-center p-4 bg-green-50 rounded-lg border">
-              <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-2" />
-              <p className="text-sm font-medium">Most Common Category</p>
-              <p className="text-lg font-bold text-green-600">
-                {data.reportsByCategory.length > 0 
-                  ? data.reportsByCategory.reduce((prev, current) => (prev.value > current.value) ? prev : current).name
-                  : "N/A"
-                }
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {data.reportsByCategory.length > 0 
-                  ? `${data.reportsByCategory.reduce((prev, current) => (prev.value > current.value) ? prev : current).value} reports`
-                  : "No data"
-                }
-              </p>
-            </div>
-            <div className="text-center p-4 bg-orange-50 rounded-lg border">
-              <Clock className="h-8 w-8 text-orange-600 mx-auto mb-2" />
-              <p className="text-sm font-medium">Pending Reports</p>
-              <p className="text-2xl font-bold text-orange-600">
-                {data.reportsByStatus.find(s => s.name === 'PENDING')?.value || 0}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Awaiting attention
-              </p>
-            </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Export Dialog */}
-      <ExportDialog
-        open={exportDialogOpen}
-        onOpenChange={setExportDialogOpen}
-        currentTimeRange={timeRange}
-      />
+        {/* Enhanced Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {statCards.map((stat, index) => (
+            <Card key={stat.title} className={`group relative overflow-hidden border-0 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 animate-fade-in bg-gradient-to-br from-card/90 to-muted/30 backdrop-blur-sm`} style={{ animationDelay: `${index * 100}ms` }}>
+              <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-primary/5 group-hover:to-primary/10 transition-all duration-300" />
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+                <CardTitle className="text-sm font-medium text-muted-foreground">{stat.title}</CardTitle>
+                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br from-chart-1 to-chart-1/70 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                  <stat.icon className="h-5 w-5 text-white" />
+                </div>
+              </CardHeader>
+              <CardContent className="relative z-10">
+                <div className="text-3xl font-bold mb-1 bg-gradient-to-r from-foreground to-muted-foreground bg-clip-text text-transparent">
+                  {stat.value}
+                </div>
+                <p className="text-sm text-muted-foreground">{stat.description}</p>
+                <div className="mt-3 h-1 bg-muted rounded-full overflow-hidden">
+                  <div className={`h-full bg-gradient-to-r from-chart-1 to-chart-1/70 rounded-full animate-pulse`} style={{ width: '60%' }} />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Modern Charts Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Reports by Category - Enhanced Pie Chart */}
+          <Card className="shadow-lg border-0 bg-gradient-to-br from-card/95 to-muted/20 backdrop-blur-sm">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-chart-1 to-chart-2 flex items-center justify-center">
+                  <PieChart className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl">Reports by Category</CardTitle>
+                  <CardDescription>Issue distribution by type</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {data.reportsByCategory.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <RechartsPieChart>
+                    <Pie
+                      data={data.reportsByCategory}
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={100}
+                      dataKey="value"
+                      label={({ name, percentage }) => `${name}: ${percentage}%`}
+                    >
+                      {data.reportsByCategory.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </RechartsPieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                  No data available
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Reports by Status - Enhanced Pie Chart */}
+          <Card className="shadow-lg border-0 bg-gradient-to-br from-card/95 to-muted/20 backdrop-blur-sm">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-chart-2 to-chart-3 flex items-center justify-center">
+                  <Clock className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl">Reports by Status</CardTitle>
+                  <CardDescription>Current status distribution</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {data.reportsByStatus.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <RechartsPieChart>
+                    <Pie
+                      data={data.reportsByStatus}
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={100}
+                      dataKey="value"
+                      label={({ name, percentage }) => `${name}: ${percentage}%`}
+                    >
+                      {data.reportsByStatus.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </RechartsPieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                  No data available
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Reports Over Time - Enhanced Line Chart */}
+          <Card className="lg:col-span-2 shadow-lg border-0 bg-gradient-to-br from-card/95 to-muted/20 backdrop-blur-sm">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-chart-3 to-chart-4 flex items-center justify-center">
+                  <Activity className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl">Reports Trend</CardTitle>
+                  <CardDescription>Daily submissions and resolutions (Last 7 days)</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {data.reportsOverTime.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={data.reportsOverTime}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" />
+                    <YAxis stroke="hsl(var(--muted-foreground))" />
+                    <Tooltip 
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--popover))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px'
+                      }}
+                    />
+                    <Legend />
+                    <Line 
+                      type="monotone" 
+                      dataKey="reports" 
+                      stroke="hsl(var(--chart-1))" 
+                      strokeWidth={3} 
+                      name="New Reports"
+                      dot={{ fill: 'hsl(var(--chart-1))', strokeWidth: 2, r: 4 }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="resolved" 
+                      stroke="hsl(var(--chart-2))" 
+                      strokeWidth={3} 
+                      name="Resolved Reports"
+                      dot={{ fill: 'hsl(var(--chart-2))', strokeWidth: 2, r: 4 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                  No data available
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Reports by Priority - Enhanced Bar Chart */}
+          <Card className="shadow-lg border-0 bg-gradient-to-br from-card/95 to-muted/20 backdrop-blur-sm">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-chart-4 to-chart-5 flex items-center justify-center">
+                  <BarChart3 className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl">Priority Distribution</CardTitle>
+                  <CardDescription>Reports by priority level</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {data.reportsByPriority.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={data.reportsByPriority}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" />
+                    <YAxis stroke="hsl(var(--muted-foreground))" />
+                    <Tooltip 
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--popover))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px'
+                      }}
+                    />
+                    <Bar 
+                      dataKey="value" 
+                      fill="hsl(var(--chart-1))" 
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[300px] flex items-center justify-center text-muted-foreground">
+                  No data available
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Enhanced KPI Summary */}
+          <Card className="shadow-lg border-0 bg-gradient-to-br from-card/95 to-muted/20 backdrop-blur-sm">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-chart-5 to-primary flex items-center justify-center">
+                  <TrendingUp className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl">Performance KPIs</CardTitle>
+                  <CardDescription>Key metrics overview</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                <div className="text-center p-6 rounded-2xl bg-gradient-to-br from-chart-2/10 to-chart-2/5 border border-chart-2/20">
+                  <div className="text-4xl font-bold text-chart-2 mb-2">
+                    {data.totalReports > 0 ? Math.round((data.resolvedReports / data.totalReports) * 100) : 0}%
+                  </div>
+                  <div className="font-medium mb-3">Resolution Rate</div>
+                  <Progress 
+                    value={data.totalReports > 0 ? Math.round((data.resolvedReports / data.totalReports) * 100) : 0} 
+                    className="h-2"
+                  />
+                  <div className="text-sm text-muted-foreground mt-3">
+                    {data.resolvedReports} of {data.totalReports} cases resolved
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="text-center p-4 rounded-xl bg-gradient-to-br from-muted/50 to-muted/30 border border-border/50">
+                    <div className="text-lg font-bold text-chart-1">
+                      {data.reportsByCategory.length > 0 
+                        ? data.reportsByCategory.reduce((prev, current) => (prev.value > current.value) ? prev : current).name
+                        : "N/A"
+                      }
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">Top Category</div>
+                  </div>
+                  
+                  <div className="text-center p-4 rounded-xl bg-gradient-to-br from-muted/50 to-muted/30 border border-border/50">
+                    <div className="text-lg font-bold text-chart-3">
+                      {data.avgResolutionTime.toFixed(1)}d
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-1">Avg Time</div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Export Dialog */}
+        <ExportDialog
+          open={exportDialogOpen}
+          onOpenChange={setExportDialogOpen}
+          currentTimeRange={timeRange}
+        />
+      </div>
     </div>
   );
 };
