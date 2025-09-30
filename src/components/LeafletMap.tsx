@@ -73,15 +73,8 @@ const LeafletMap = ({
         markerZoomAnimation: true
       }).setView(center, zoom);
 
-      // Add single optimized tile layer
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 16,
-        keepBuffer: 2, // Reduced buffer for better performance
-        updateWhenZooming: false,
-        updateWhenIdle: true,
-        crossOrigin: true
-      }).addTo(map);
+      // Note: Tile layer is now added from parent component (ReportsMap)
+      // This allows for dynamic layer switching
 
       mapInstanceRef.current = map;
       

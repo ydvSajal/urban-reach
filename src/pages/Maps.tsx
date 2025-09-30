@@ -1,34 +1,30 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import ReportsMap from "@/components/ReportsMap";
 import { MapPin } from "lucide-react";
 
 const Maps = () => {
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold flex items-center gap-2">
-            <MapPin className="h-8 w-8" />
-            Reports Map
-          </h1>
-          <p className="text-muted-foreground">
-            Interactive map showing all reported issues with filtering and clustering
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
+      {/* Header */}
+      <div className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container mx-auto px-6 py-6">
+          <div className="flex items-center gap-3">
+            <div className="p-3 rounded-xl bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-lg">
+              <MapPin className="h-6 w-6" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Interactive Map</h1>
+              <p className="text-sm text-muted-foreground mt-1">
+                Explore complaints across India with multiple map views
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Interactive Reports Map</CardTitle>
-          <CardDescription>
-            View all reports on an interactive map. Use filters to narrow down by status, category, or priority. 
-            Click on markers for detailed information and quick actions.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ReportsMap height="600px" />
-        </CardContent>
-      </Card>
+      {/* Full-screen Map */}
+      <div className="container mx-auto px-6 py-6">
+        <ReportsMap height="calc(100vh - 200px)" />
+      </div>
     </div>
   );
 };

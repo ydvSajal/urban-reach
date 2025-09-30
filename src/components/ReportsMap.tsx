@@ -40,19 +40,57 @@ interface MapFilters {
   priority: string;
 }
 
+type MapViewType = 'standard' | 'satellite' | 'terrain' | 'dark';
+
+// Different map tile layers
+const MAP_LAYERS = {
+  standard: {
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: '&copy; OpenStreetMap contributors',
+    label: 'Standard'
+  },
+  satellite: {
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attribution: '&copy; Esri',
+    label: 'Satellite'
+  },
+  terrain: {
+    url: 'https://stamen-tiles-{s}.a.ssl.fastly.net/terrain/{z}/{x}/{y}.jpg',
+    attribution: '&copy; Stamen Design',
+    label: 'Terrain'
+  },
+  dark: {
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; CartoDB',
+    label: 'Dark Mode'
+  }
+};
+
 const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersLayerRef = useRef<L.LayerGroup | null>(null);
+  const tileLayerRef = useRef<L.TileLayer | null>(null);
   const [reports, setReports] = useState<Report[]>([]);
   const [filteredReports, setFilteredReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<MapFilters>({ status: "all", category: "all", priority: "all" });
   const [showFilters, setShowFilters] = useState(false);
+  const [mapView, setMapView] = useState<MapViewType>('standard');
 
   // Handle map ready
   const handleMapReady = (map: L.Map) => {
     console.log('Map is ready!');
     mapInstanceRef.current = map;
+    
+    // Add initial tile layer
+    const layerConfig = MAP_LAYERS[mapView];
+    tileLayerRef.current = L.tileLayer(layerConfig.url, {
+      attribution: layerConfig.attribution,
+      maxZoom: 16,
+      keepBuffer: 2,
+      updateWhenZooming: false,
+      updateWhenIdle: true,
+    }).addTo(map);
     
     // Create markers layer group
     markersLayerRef.current = L.layerGroup().addTo(map);
@@ -60,6 +98,26 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
     // Add markers if we have reports
     if (filteredReports.length > 0) {
       addMarkersToMap();
+    }
+  };
+
+  // Handle map view change
+  const changeMapView = (newView: MapViewType) => {
+    setMapView(newView);
+    
+    if (mapInstanceRef.current && tileLayerRef.current) {
+      // Remove old tile layer
+      tileLayerRef.current.remove();
+      
+      // Add new tile layer
+      const layerConfig = MAP_LAYERS[newView];
+      tileLayerRef.current = L.tileLayer(layerConfig.url, {
+        attribution: layerConfig.attribution,
+        maxZoom: 16,
+        keepBuffer: 2,
+        updateWhenZooming: false,
+        updateWhenIdle: true,
+      }).addTo(mapInstanceRef.current);
     }
   };
 
@@ -229,14 +287,39 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
 
   return (
     <div className={`space-y-4 ${className}`}>
+      {/* Map View Controls */}
+      <Card className="border-2 shadow-lg bg-gradient-to-br from-card to-card/80">
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <MapPin className="h-5 w-5 text-primary" />
+              Map View Controls
+            </CardTitle>
+            <div className="flex items-center gap-2 flex-wrap">
+              {(Object.keys(MAP_LAYERS) as MapViewType[]).map((viewType) => (
+                <Button
+                  key={viewType}
+                  variant={mapView === viewType ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => changeMapView(viewType)}
+                  className="transition-all"
+                >
+                  {MAP_LAYERS[viewType].label}
+                </Button>
+              ))}
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
+
       {/* Filters Section - Only show if we have reports */}
       {reports.length > 0 && (
-        <Card>
+        <Card className="border-2 shadow-lg bg-gradient-to-br from-card to-card/80">
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-lg flex items-center gap-2">
-                <Filter className="h-5 w-5" />
-                Map Filters
+                <Filter className="h-5 w-5 text-primary" />
+                Report Filters
               </CardTitle>
               <div className="flex items-center gap-2">
                 <Button
@@ -245,7 +328,7 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
                   onClick={() => setShowFilters(!showFilters)}
                 >
                   <Filter className="h-4 w-4 mr-2" />
-                  {showFilters ? "Hide Filters" : "Show Filters"}
+                  {showFilters ? "Hide" : "Show"}
                 </Button>
                 <Button
                   variant="outline"
@@ -313,8 +396,10 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
                 </div>
               </div>
               
-              <div className="mt-4 text-sm text-muted-foreground">
-                Showing {filteredReports.length} of {reports.length} reports
+              <div className="mt-4 flex items-center justify-between">
+                <div className="text-sm text-muted-foreground">
+                  Showing <span className="font-semibold text-primary">{filteredReports.length}</span> of <span className="font-semibold">{reports.length}</span> reports
+                </div>
               </div>
             </CardContent>
           )}
@@ -322,24 +407,51 @@ const ReportsMap = ({ className = "", height = "400px" }: ReportsMapProps) => {
       )}
 
       {/* Map Section */}
-      <div className="relative bg-background border rounded-lg overflow-hidden" style={{ height }}>
-        <LeafletMap
-          className="w-full h-full"
-          style={{ height: '100%', minHeight: '400px' }}
-          center={[20.5937, 78.9629]} // Center of India
-          zoom={5} // Show most of India
-          onMapReady={handleMapReady}
-        />
-        {reports.length === 0 && !loading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-background/90 backdrop-blur-sm">
-            <div className="text-center">
-              <MapPin className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">No reports with location data found</p>
-              <p className="text-xs text-muted-foreground mt-1">Create some sample reports to see them on the map</p>
+      <Card className="border-2 shadow-xl overflow-hidden">
+        <div className="relative bg-muted" style={{ height }}>
+          <LeafletMap
+            className="w-full h-full"
+            style={{ height: '100%', minHeight: '400px' }}
+            center={[20.5937, 78.9629]} // Center of India
+            zoom={5} // Show most of India
+            onMapReady={handleMapReady}
+          />
+          {reports.length === 0 && !loading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/95 backdrop-blur-sm">
+              <div className="text-center p-8">
+                <MapPin className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                <p className="text-base font-medium text-foreground mb-1">No reports with location data found</p>
+                <p className="text-sm text-muted-foreground">Reports will appear here once they include location information</p>
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+          
+          {/* Map Legend */}
+          {filteredReports.length > 0 && (
+            <div className="absolute bottom-4 right-4 bg-background/95 backdrop-blur-sm p-3 rounded-lg shadow-lg border-2 z-[1000]">
+              <div className="text-xs font-semibold mb-2">Legend</div>
+              <div className="space-y-1 text-xs">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-[#22c55e] border-2 border-white"></div>
+                  <span>Resolved</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-[#ef4444] border-2 border-white"></div>
+                  <span>High Priority</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-[#f59e0b] border-2 border-white"></div>
+                  <span>Medium Priority</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-[#3b82f6] border-2 border-white"></div>
+                  <span>Low Priority</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </Card>
     </div>
   );
 };
